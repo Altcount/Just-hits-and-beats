@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Just Hits and Dodges</title>
+<meta name="theme-color" content="#000000">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="game" aria-label="Game arena"></canvas>
+
+<section id="title" class="screen">
+  <div class="title-block">
+    <h1>JUST HITS<br><em>&amp;</em> DODGES</h1>
+    <p class="sub">50 waves. 14 bosses. Everything lands on the beat.</p>
+    <nav class="stack">
+      <button id="btn-play" class="primary"></button>
+      <button id="btn-waves">CHOOSE WAVE</button>
+      <button id="btn-help">HOW TO PLAY</button>
+      <button id="btn-settings">SETTINGS</button>
+    </nav>
+    <p id="title-progress" class="meta"></p>
+  </div>
+</section>
+
+<section id="select" class="screen panel-screen" hidden>
+  <header class="bar">
+    <button class="back" data-go="title">&larr; BACK</button>
+    <h2>CHOOSE A WAVE</h2>
+    <span id="select-count" class="meta"></span>
+  </header>
+  <div class="select-body">
+    <div id="wave-list" class="wave-list"></div>
+    <aside id="detail" class="detail">
+      <canvas id="detail-art" width="280" height="280"></canvas>
+      <p id="d-wave" class="meta"></p>
+      <h3 id="d-name"></h3>
+      <p id="d-title" class="d-title"></p>
+      <p id="d-tag" class="d-tag"></p>
+      <h4>MOVES IN THIS WAVE</h4>
+      <ul id="d-moves"></ul>
+      <p id="d-best" class="meta"></p>
+      <button id="d-fight" class="primary">FIGHT</button>
+    </aside>
+  </div>
+</section>
+
+<section id="help" class="screen panel-screen" hidden>
+  <header class="bar">
+    <button class="back" data-go="title">&larr; BACK</button>
+    <h2>HOW TO PLAY</h2>
+    <span></span>
+  </header>
+  <div class="help-body">
+    <div class="help-card">
+      <h3>MOVE</h3>
+      <p><kbd>WASD</kbd> or <kbd>Arrows</kbd>. On touch, drag the left side of the screen.</p>
+    </div>
+    <div class="help-card">
+      <h3>HIT</h3>
+      <p><kbd>J</kbd>, <kbd>Z</kbd> or <kbd>Left click</kbd>. When the boss is inside the ring around you, the ring lights up and your hit lands. Hold it to keep swinging.</p>
+    </div>
+    <div class="help-card">
+      <h3>DODGE</h3>
+      <p><kbd>Space</kbd>, <kbd>K</kbd>, <kbd>X</kbd> or <kbd>Right click</kbd>. A quick dash that passes through anything, in the direction you're moving.</p>
+    </div>
+    <div class="help-card">
+      <h3>ON BEAT</h3>
+      <p>A hit that lands right on the beat does double damage. Watch the lamp in the corner, or just listen to the kick drum.</p>
+    </div>
+    <div class="help-card">
+      <h3>SURGE</h3>
+      <p>Dodge <em>through</em> an attack to store a charge, up to three. Your next hit spends them all for big damage. Getting hit loses them.</p>
+    </div>
+    <div class="help-card">
+      <h3>READ THE ARENA</h3>
+      <p><strong>Hollow means warning. Solid means pain.</strong> Dashed outlines show where an attack will land. You are the white diamond.</p>
+    </div>
+  </div>
+</section>
+
+<section id="settings" class="screen panel-screen" hidden>
+  <header class="bar">
+    <button class="back" data-go="title">&larr; BACK</button>
+    <h2>SETTINGS</h2>
+    <span></span>
+  </header>
+  <div class="settings-body">
+    <div class="field">
+      <label>DIFFICULTY</label>
+      <div id="diff" class="seg">
+        <button data-diff="chill">CHILL<small>8 health, slower shots</small></button>
+        <button data-diff="normal">NORMAL<small>5 health</small></button>
+        <button data-diff="brutal">BRUTAL<small>3 health, faster shots</small></button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="vol-music">MUSIC</label>
+      <input id="vol-music" type="range" min="0" max="100">
+    </div>
+    <div class="field">
+      <label for="vol-sfx">SOUND EFFECTS</label>
+      <input id="vol-sfx" type="range" min="0" max="100">
+    </div>
+    <div class="field">
+      <label for="calm">REDUCE FLASHING AND SHAKE</label>
+      <button id="calm" class="toggle" aria-pressed="false"></button>
+    </div>
+    <div class="field">
+      <label>PROGRESS</label>
+      <button id="reset" class="toggle">ERASE ALL PROGRESS</button>
+    </div>
+  </div>
+</section>
+
+<section id="pause" class="screen modal" hidden>
+  <div class="card">
+    <h2>PAUSED</h2>
+    <p id="pause-info" class="meta"></p>
+    <nav class="stack">
+      <button id="btn-resume" class="primary">RESUME</button>
+      <button id="btn-restart">RESTART WAVE</button>
+      <button id="btn-quit">CHOOSE WAVE</button>
+    </nav>
+  </div>
+</section>
+
+<section id="result" class="screen modal" hidden>
+  <div class="card">
+    <p id="r-wave" class="meta"></p>
+    <h2 id="r-title">WAVE CLEARED</h2>
+    <div id="r-rank" class="rank">S</div>
+    <dl class="stats">
+      <div><dt>TIME</dt><dd id="r-time"></dd></div>
+      <div><dt>HITS TAKEN</dt><dd id="r-hits"></dd></div>
+      <div><dt>ON BEAT</dt><dd id="r-beat"></dd></div>
+      <div><dt>DODGES</dt><dd id="r-dodge"></dd></div>
+    </dl>
+    <p id="r-run" class="meta"></p>
+    <nav class="stack">
+      <button id="btn-next" class="primary"></button>
+      <button id="btn-replay">REPLAY WAVE</button>
+      <button id="btn-r-quit">CHOOSE WAVE</button>
+    </nav>
+  </div>
+</section>
+
+<section id="dead" class="screen modal" hidden>
+  <div class="card">
+    <p id="x-wave" class="meta"></p>
+    <h2>SIGNAL LOST</h2>
+    <p id="x-info" class="x-info"></p>
+    <nav class="stack">
+      <button id="btn-retry" class="primary">TRY AGAIN</button>
+      <button id="btn-x-quit">CHOOSE WAVE</button>
+    </nav>
+  </div>
+</section>
+
+<div id="touch" hidden>
+  <div id="stick"><div id="nub"></div></div>
+  <button id="t-dodge" class="t-btn">DODGE</button>
+  <button id="t-hit" class="t-btn big">HIT</button>
+  <button id="t-pause" class="t-small" aria-label="Pause">II</button>
+</div>
+
+<script src="audio.js"></script>
+<script src="engine.js"></script>
+<script src="bosses.js"></script>
+<script src="render.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
