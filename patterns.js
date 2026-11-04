@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 // Attack patterns behind the named moves. mv(name, pattern, options) makes one move; options tune it.
 function awayPoint(minD, y0 = 90, y1 = H - 60) {
   let x = 0, y = 0, tries = 0;
@@ -78,7 +78,7 @@ const PAT = {
   },
   rotor(o, B) {
     const n = o.n || 3, s = (rnd() < 0.5 ? 1 : -1) * (o.spin || 0.14);
-    at(1, () => {
+    at(2, () => {
       const b = Bo();
       for (let i = 0; i < n; i++) beam(b.x, b.y, (i / n) * TAU + 0.3, { tele: 3, live: B - 5, w: o.w || 22, spin: s * game.spMul });
     });
@@ -189,7 +189,7 @@ const PAT = {
     every(6, B - 2, o.gap || 4, () => { const b = Bo(); fan(b.x, b.y, aim(b.x, b.y), 3, 0.3, sp(220)); });
   },
   well(o, B) {
-    at(0, () => { const b = Bo(); game.gravity = { x: b.x, y: b.y, str: o.pull || 55 }; });
+    at(2, () => { const b = Bo(); game.gravity = { x: b.x, y: b.y, str: o.pull || 55 }; });
     every(2, B - 1, o.rate || 1, (i) => {
       const b = Bo();
       for (let k = 0; k < (o.arms || 3); k++) bullet(b.x, b.y, i * 0.37 + (k / (o.arms || 3)) * TAU, sp(o.speed || 160), { r: 8, curve: o.curve || -0.2, life: 8 });

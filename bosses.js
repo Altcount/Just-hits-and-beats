@@ -1,7 +1,7 @@
 ﻿"use strict";
 // The roster. Each boss has a look, a song and four named moves; wave list is built at the bottom.
 // A move schedules its attacks in beats, so a telegraph of 2 started on beat 2 lands exactly on beat 4.
-const CY = "#00f0ff", ICE = "#d8ffff";
+
 const PI = Math.PI;
 const Pl = () => game.player, Bo = () => game.boss;
 const sp = (v) => v * game.spMul;
@@ -31,10 +31,10 @@ function pg(c, n, r, rot = 0) {
 function ink(c, b, lw = 3) {
   c.lineWidth = lw;
   c.strokeStyle = b.flash > 0 ? ICE : CY;
-  c.fillStyle = b.flash > 0 ? ICE : "#001114";
+  c.fillStyle = b.flash > 0 ? ICE : DARK;
 }
 const solid = (c, b) => { c.fillStyle = b.flash > 0.4 ? "#ffffff" : CY; };
-const dark = (c, b) => { c.fillStyle = b.flash > 0 ? ICE : "#001114"; };
+const dark = (c, b) => { c.fillStyle = b.flash > 0 ? ICE : DARK; };
 
 const VOLT = {
   id: "volt", name: "VOLT WARDEN", title: "Gatekeeper of the First Grid",
@@ -834,19 +834,3 @@ const ZERO = {
   },
 };
 
-const TIER_NAMES = ["FIRST CONTACT", "ESCALATION", "FULL FORM", "OVERDRIVE"];
-const WAVES = [];
-BOSSES.forEach((d, i) => {
-  const base = 24 + i * 3;
-  [1, 1.4, 1.8, 2.3].forEach((m, tier) => {
-    WAVES.push({
-      n: WAVES.length + 1, boss: d, tier, label: TIER_NAMES[tier],
-      moves: d.moves.slice(0, Math.min(4, tier + 2)),
-      hp: Math.round(base * m * 2),
-      phases: tier >= 2 ? [0.66, 0.33] : [0.5],
-    });
-  });
-});
-WAVES.push({ n: 49, boss: CHOIR, tier: 3, label: "REQUIEM", moves: CHOIR.moves, hp: 340, phases: [0.75, 0.5, 0.25] });
-WAVES.push({ n: 50, boss: ZERO, tier: 3, label: "END OF SIGNAL", moves: ZERO.moves, hp: 380, phases: [0.75, 0.5, 0.25] });
-const ROSTER = BOSSES.concat([CHOIR, ZERO]);

@@ -24,6 +24,8 @@ const Render = (() => {
     vignette = null;
   }
   function setCalm(v) { calm = v; }
+  // Bullet sprites and the vignette are baked in one colour, so a switch throws them away.
+  Theme.listeners.push(() => { Object.keys(sprites).forEach((k) => delete sprites[k]); vignette = null; });
 
   function bulletSprite(r) {
     const key = Math.round(r);
@@ -33,8 +35,8 @@ const Render = (() => {
     const x = s.getContext("2d");
     x.scale(2, 2);
     const g = x.createRadialGradient(pad, pad, key * 0.6, pad, pad, pad);
-    g.addColorStop(0, "rgba(0,240,255,.75)");
-    g.addColorStop(1, "rgba(0,240,255,0)");
+    g.addColorStop(0, `rgba(${NEON},.75)`);
+    g.addColorStop(1, `rgba(${NEON},0)`);
     x.fillStyle = g;
     x.fillRect(0, 0, pad * 2, pad * 2);
     x.fillStyle = CY;
@@ -48,7 +50,7 @@ const Render = (() => {
     c.fillStyle = "#000";
     c.fillRect(0, 0, W, H);
     const size = 80, drift = (t * 24) % size;
-    c.strokeStyle = `rgba(0,240,255,${0.07 + pu * 0.09 * intensity})`;
+    c.strokeStyle = `rgba(${NEON},${0.07 + pu * 0.09 * intensity})`;
     c.lineWidth = 1;
     c.beginPath();
     for (let x = -drift; x <= W; x += size) { c.moveTo(x, 0); c.lineTo(x, H); }
@@ -56,7 +58,7 @@ const Render = (() => {
     c.stroke();
     if (!vignette) {
       vignette = c.createRadialGradient(W / 2, H / 2, 240, W / 2, H / 2, 780);
-      vignette.addColorStop(0, "rgba(0,50,58,.26)");
+      vignette.addColorStop(0, `rgba(${NEON},.06)`);
       vignette.addColorStop(1, "rgba(0,0,0,0)");
     }
     c.fillStyle = vignette;
@@ -69,8 +71,8 @@ const Render = (() => {
     // Telegraphs and big shapes first so bullets always sit on top of them.
     for (const h of g.hz) {
       if (h.k === "z") {
-        c.fillStyle = "rgba(0,240,255,.07)";
-        c.strokeStyle = "rgba(0,240,255,.3)";
+        c.fillStyle = `rgba(${NEON},.07)`;
+        c.strokeStyle = `rgba(${NEON},.3)`;
         c.lineWidth = 1;
         c.beginPath(); c.arc(h.x, h.y, h.r, 0, TAU); c.fill(); c.stroke();
         c.beginPath();
@@ -110,14 +112,14 @@ const Render = (() => {
     const line = (w) => { c.lineWidth = w; c.beginPath(); c.moveTo(h.x, h.y); c.lineTo(x2, y2); c.stroke(); };
     if (!h.on) {
       const u = teleU(h);
-      c.strokeStyle = `rgba(0,240,255,${0.1 + u * 0.22})`;
+      c.strokeStyle = `rgba(${NEON},${0.1 + u * 0.22})`;
       line(h.w * u);
-      c.strokeStyle = `rgba(0,240,255,${0.35 + u * 0.55})`;
+      c.strokeStyle = `rgba(${NEON},${0.35 + u * 0.55})`;
       dashed(true); line(1.5); dashed(false);
     } else if (!h.ghost) {
       const left = h.live > 0 ? 1 - clamp((h.age - h.tele) / h.live, 0, 1) : 0;
       const w = h.w * (left < 0.2 ? left / 0.2 : 1);
-      c.strokeStyle = "rgba(0,240,255,.22)"; line(w + 18);
+      c.strokeStyle = `rgba(${NEON},.22)`; line(w + 18);
       c.strokeStyle = CY; line(w);
       c.strokeStyle = ICE; line(w * 0.35);
     }
@@ -125,9 +127,9 @@ const Render = (() => {
   function drawWall(h) {
     if (!h.on) {
       const u = teleU(h);
-      c.fillStyle = `rgba(0,240,255,${0.03 + u * 0.13})`;
+      c.fillStyle = `rgba(${NEON},${0.03 + u * 0.13})`;
       c.fillRect(h.x, h.y, h.w, h.h);
-      c.strokeStyle = `rgba(0,240,255,${0.35 + u * 0.55})`;
+      c.strokeStyle = `rgba(${NEON},${0.35 + u * 0.55})`;
       c.lineWidth = 2;
       dashed(true); c.strokeRect(h.x, h.y, h.w, h.h); dashed(false);
     } else if (!h.ghost) {
@@ -142,14 +144,14 @@ const Render = (() => {
     c.beginPath(); c.arc(h.x, h.y, h.r, 0, TAU);
     if (!h.on) {
       const u = teleU(h);
-      c.fillStyle = `rgba(0,240,255,${0.03 + u * 0.13})`;
+      c.fillStyle = `rgba(${NEON},${0.03 + u * 0.13})`;
       c.fill();
-      c.strokeStyle = `rgba(0,240,255,${0.4 + u * 0.5})`;
+      c.strokeStyle = `rgba(${NEON},${0.4 + u * 0.5})`;
       c.lineWidth = 2;
       dashed(true); c.stroke(); dashed(false);
       c.beginPath(); c.arc(h.x, h.y, h.r * u, 0, TAU);
       c.lineWidth = 2;
-      c.strokeStyle = `rgba(216,255,255,${0.25 + u * 0.5})`;
+      c.strokeStyle = `rgba(${ICE_RGB},${0.25 + u * 0.5})`;
       c.stroke();
     } else if (!h.ghost) {
       c.fillStyle = CY; c.fill();
@@ -169,15 +171,15 @@ const Render = (() => {
   }
   function drawSafeZone(h) {
     if (!h.on) {
-      c.strokeStyle = `rgba(216,255,255,${0.5 + teleU(h) * 0.5})`;
+      c.strokeStyle = `rgba(${ICE_RGB},${0.5 + teleU(h) * 0.5})`;
       c.lineWidth = 3;
       dashed(true);
       c.beginPath(); c.arc(h.x, h.y, h.r, 0, TAU); c.stroke();
       dashed(false);
-      c.fillStyle = `rgba(0,240,255,${teleU(h) * 0.13})`;
+      c.fillStyle = `rgba(${NEON},${teleU(h) * 0.13})`;
       c.beginPath(); c.rect(0, 0, W, H); c.arc(h.x, h.y, h.r, 0, TAU, true); c.fill();
     } else {
-      c.fillStyle = "rgba(0,240,255,.82)";
+      c.fillStyle = `rgba(${NEON},.82)`;
       c.beginPath(); c.rect(0, 0, W, H); c.arc(h.x, h.y, h.r, 0, TAU, true); c.fill();
       c.strokeStyle = ICE; c.lineWidth = 4;
       c.beginPath(); c.arc(h.x, h.y, h.r, 0, TAU); c.stroke();
@@ -194,7 +196,7 @@ const Render = (() => {
     const p = g.player;
     if (!p.alive) return;
     const inRange = g.boss.alive && g.boss.parts.some((q) => q.hit !== false && Math.hypot(q.x - p.x, q.y - p.y) - q.r < STRIKE_R);
-    c.strokeStyle = inRange ? "rgba(216,255,255,.75)" : "rgba(0,240,255,.14)";
+    c.strokeStyle = inRange ? `rgba(${ICE_RGB},.75)` : `rgba(${NEON},.14)`;
     c.lineWidth = inRange ? 2 : 1;
     c.beginPath(); c.arc(p.x, p.y, STRIKE_R, 0, TAU); c.stroke();
 
@@ -223,7 +225,7 @@ const Render = (() => {
   function drawFx(g) {
     for (const r of g.rings) {
       const u = r.age / r.life, rad = lerp(r.r, r.to, 1 - (1 - u) * (1 - u));
-      c.strokeStyle = `rgba(216,255,255,${(1 - u) * 0.85})`;
+      c.strokeStyle = `rgba(${ICE_RGB},${(1 - u) * 0.85})`;
       c.lineWidth = r.w * (1 - u) + 0.5;
       c.beginPath(); c.arc(r.x, r.y, rad, 0, TAU); c.stroke();
     }
@@ -257,7 +259,7 @@ const Render = (() => {
     c.fillText(g.def.name, x0, y0 - 9);
     c.textAlign = "right";
     c.font = `500 15px ${FONT}`;
-    c.fillStyle = "rgba(0,240,255,.8)";
+    c.fillStyle = `rgba(${NEON},.8)`;
     c.fillText(`WAVE ${String(g.n).padStart(2, "0")}  //  ${g.wave.label}`, x0 + barW, y0 - 10);
     c.strokeStyle = CY; c.lineWidth = 2;
     c.strokeRect(x0, y0, barW, 16);
@@ -276,7 +278,7 @@ const Render = (() => {
       c.lineWidth = 6;
       c.lineJoin = "round";
       c.strokeText(g.move.name, W / 2, y0 + 44 + big * 6);
-      c.fillStyle = `rgba(216,255,255,${0.7 + big * 0.3})`;
+      c.fillStyle = `rgba(${ICE_RGB},${0.7 + big * 0.3})`;
       c.fillText(g.move.name, W / 2, y0 + 44 + big * 6);
     }
 
@@ -288,27 +290,27 @@ const Render = (() => {
       c.translate(x, y);
       c.rotate(PI / 4);
       if (i < p.hp) { c.fillStyle = "#fff"; c.fillRect(-8, -8, 16, 16); }
-      else { c.strokeStyle = "rgba(0,240,255,.45)"; c.lineWidth = 2; c.strokeRect(-8, -8, 16, 16); }
+      else { c.strokeStyle = `rgba(${NEON},.45)`; c.lineWidth = 2; c.strokeRect(-8, -8, 16, 16); }
       c.restore();
     }
     const sx = 28 + p.maxHp * 30 + 20;
     c.font = `600 13px ${FONT}`;
-    c.fillStyle = p.charge ? ICE : "rgba(0,240,255,.55)";
+    c.fillStyle = p.charge ? ICE : `rgba(${NEON},.55)`;
     c.fillText("SURGE", sx, H - 25);
     for (let i = 0; i < MAX_CHARGE; i++) {
       const x = sx + 62 + i * 18;
       c.beginPath(); c.arc(x, H - 30, 6, 0, TAU);
       if (i < p.charge) { c.fillStyle = ICE; c.fill(); }
-      else { c.strokeStyle = "rgba(0,240,255,.45)"; c.lineWidth = 1.5; c.stroke(); }
+      else { c.strokeStyle = `rgba(${NEON},.45)`; c.lineWidth = 1.5; c.stroke(); }
     }
     // Beat lamp: strike when this flashes for double damage.
     const lx = W - 44, ly = H - 34;
     c.beginPath(); c.arc(lx, ly, 10 + pu * 9, 0, TAU);
-    c.fillStyle = `rgba(0,240,255,${0.2 + pu * 0.8})`;
+    c.fillStyle = `rgba(${NEON},${0.2 + pu * 0.8})`;
     c.fill();
     c.textAlign = "right";
     c.font = `600 13px ${FONT}`;
-    c.fillStyle = "rgba(0,240,255,.7)";
+    c.fillStyle = `rgba(${NEON},.7)`;
     c.fillText("BEAT", lx - 26, ly + 5);
 
     if (g.phaseFlash > 0) {
@@ -386,13 +388,13 @@ const Render = (() => {
     if (g.dark > 0) darkness(g, pu);
     c.restore();
     if (g.flash > 0 && !calm) {
-      c.fillStyle = `rgba(0,240,255,${g.flash * 0.3})`;
+      c.fillStyle = `rgba(${NEON},${g.flash * 0.3})`;
       c.fillRect(0, 0, W, H);
     }
     hud(g, pu);
     if (g.state === "intro") intro(g);
     // Letterbox rim, brightest on the kick.
-    c.strokeStyle = `rgba(0,240,255,${0.35 + (calm ? 0 : pu * 0.5)})`;
+    c.strokeStyle = `rgba(${NEON},${0.35 + (calm ? 0 : pu * 0.5)})`;
     c.lineWidth = 3;
     c.strokeRect(1.5, 1.5, W - 3, H - 3);
   }

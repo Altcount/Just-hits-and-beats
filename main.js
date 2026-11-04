@@ -1,8 +1,8 @@
-"use strict";
+﻿"use strict";
 // Screens, input, saving and the frame loop.
 const Save = {
   key: "just-hits-and-dodges-v1",
-  data: { waves: {}, diff: "normal", music: 70, sfx: 80, calm: false, bestRun: 0 },
+  data: { waves: {}, diff: "normal", music: 70, sfx: 80, calm: false, bestRun: 0, hue: 184, autoColor: false },
   load() {
     try {
       const raw = localStorage.getItem(this.key);
@@ -15,6 +15,8 @@ const Save = {
       if (typeof d.sfx === "number") this.data.sfx = d.sfx;
       if (typeof d.calm === "boolean") this.data.calm = d.calm;
       if (typeof d.bestRun === "number") this.data.bestRun = d.bestRun;
+      if (typeof d.hue === "number") this.data.hue = d.hue;
+      if (typeof d.autoColor === "boolean") this.data.autoColor = d.autoColor;
     } catch (e) { /* an unreadable save just means starting fresh */ }
   },
   write() {
@@ -62,45 +64,35 @@ function refreshTitle() {
 }
 
 /* ---------- wave select ---------- */
+function paintTileArt() {
+  document.querySelectorAll(".tile canvas").forEach((art) => Render.preview(art, WAVES[+art.dataset.wave - 1].boss, 0.6, 0.3));
+}
 function buildWaveList() {
   const list = $("wave-list");
   list.innerHTML = "";
-  ROSTER.forEach((def) => {
-    const row = document.createElement("div");
-    row.className = "boss-row";
+  WAVES.forEach((w) => {
+    const b = document.createElement("button");
+    b.className = "tile";
+    b.dataset.wave = w.n;
+    b.title = `Wave ${w.n}: ${w.boss.name}`;
     const art = document.createElement("canvas");
     art.width = art.height = 112;
-    row.appendChild(art);
-    const label = document.createElement("div");
-    const nm = document.createElement("b"); nm.textContent = def.name;
-    const ti = document.createElement("small"); ti.textContent = def.title;
-    label.append(nm, ti);
-    row.appendChild(label);
-    const tiles = document.createElement("div");
-    tiles.className = "tiles";
-    WAVES.filter((w) => w.boss === def).forEach((w) => {
-      const b = document.createElement("button");
-      b.className = "tile";
-      b.dataset.wave = w.n;
-      b.title = `Wave ${w.n}: ${w.label}`;
-      b.addEventListener("click", () => selectWave(w.n));
-      b.addEventListener("dblclick", () => beginRun(w.n));
-      tiles.appendChild(b);
-    });
-    row.appendChild(tiles);
-    list.appendChild(row);
-    Render.preview(art, def, 0.6, 0.3);
+    art.dataset.wave = w.n;
+    const num = document.createElement("span"); num.className = "t-num"; num.textContent = pad2(w.n);
+    const rank = document.createElement("span"); rank.className = "t-rank";
+    const nm = document.createElement("span"); nm.className = "t-name"; nm.textContent = w.boss.name;
+    b.append(art, num, rank, nm);
+    b.addEventListener("click", () => selectWave(w.n));
+    b.addEventListener("dblclick", () => beginRun(w.n));
+    list.appendChild(b);
   });
+  paintTileArt();
   refreshTiles();
 }
 function refreshTiles() {
   document.querySelectorAll(".tile").forEach((t) => {
     const n = +t.dataset.wave, rec = Save.data.waves[n];
-    t.innerHTML = "";
-    t.append(document.createTextNode(pad2(n)));
-    const s = document.createElement("small");
-    s.textContent = rec ? rec.rank : "";
-    t.append(s);
+    t.querySelector(".t-rank").textContent = rec ? rec.rank : "";
     t.className = "tile" + (rec ? ` cleared rank-${rec.rank}` : "") + (n === App.selected ? " active" : "");
   });
   $("select-count").textContent = `${clearedCount()} / ${WAVES.length} CLEARED`;
@@ -136,6 +128,7 @@ function launch(n) {
   Sound.init();
   Sound.resume();
   App.selected = n;
+  if (Save.data.autoColor) Theme.set(n * 47 + Save.data.hue);
   startFight(n, Save.data.diff);
   Sound.setTrack(game.def.music);
   App.mode = "fight";
@@ -153,6 +146,7 @@ function resetInput() {
 function toMenu(screen) {
   App.mode = "menu";
   game = null;
+  if (Save.data.autoColor) Theme.set(Save.data.hue);
   $("touch").hidden = true;
   Sound.setTrack(MENU_TRACK);
   App.menuT = 0;
@@ -242,6 +236,7 @@ window.addEventListener("keydown", (e) => {
     if (DASH_KEYS.has(e.code)) { input.dashBuf = 0.12; e.preventDefault(); return; }
     if (e.code === "Escape" || e.code === "KeyP") { pauseGame(); e.preventDefault(); return; }
     if (e.code === "KeyR") { launch(game.n); e.preventDefault(); }
+    if (e.code === "KeyC") { nextNeon(); e.preventDefault(); }
     return;
   }
   if (e.repeat) return;
@@ -267,7 +262,9 @@ window.addEventListener("keyup", (e) => {
 });
 // Arrow keys walk the wave grid: left/right by wave, up/down by boss.
 function waveKeys(e) {
-  const d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -4, ArrowDown: 4 }[e.code];
+  const tiles = [...document.querySelectorAll(".tile")];
+  const cols = Math.max(1, tiles.filter((t) => t.offsetTop === tiles[0].offsetTop).length);
+  const d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols, ArrowDown: cols }[e.code];
   if (!d) return;
   e.preventDefault();
   const n = clamp(App.selected + d, 1, WAVES.length);
@@ -359,7 +356,30 @@ $("btn-r-quit").addEventListener("click", () => toMenu("select"));
 $("btn-retry").addEventListener("click", () => { if (overReady()) launch(game.n); });
 $("btn-x-quit").addEventListener("click", () => toMenu("select"));
 
+function setNeon(hue) {
+  Save.data.hue = ((hue % 360) + 360) % 360;
+  Theme.set(Save.data.hue);
+  Save.write();
+  refreshSettings();
+}
+// The C key steps through the presets, starting from whichever is nearest the current colour.
+function nextNeon() {
+  const i = NEON_PRESETS.map((p) => p.hue).sort((a, b) => a - b).find((h) => h > Theme.hue);
+  setNeon(i === undefined ? Math.min(...NEON_PRESETS.map((p) => p.hue)) : i);
+}
+function applyThemeToPage() {
+  const root = document.documentElement.style;
+  root.setProperty("--cyan", CY);
+  root.setProperty("--ice", ICE);
+  root.setProperty("--neon", NEON);
+  const meta = document.querySelector("meta[name=theme-color]");
+  if (meta) meta.setAttribute("content", DARK);
+}
 function refreshSettings() {
+  document.querySelectorAll("#swatches button").forEach((b) => b.classList.toggle("on", +b.dataset.hue === Math.round(Save.data.hue)));
+  $("hue").value = Math.round(Save.data.hue);
+  $("auto-color").textContent = Save.data.autoColor ? "ON" : "OFF";
+  $("auto-color").setAttribute("aria-pressed", String(Save.data.autoColor));
   document.querySelectorAll("#diff button").forEach((b) => b.classList.toggle("on", b.dataset.diff === Save.data.diff));
   $("vol-music").value = Save.data.music;
   $("vol-sfx").value = Save.data.sfx;
@@ -377,6 +397,23 @@ $("vol-sfx").addEventListener("input", (e) => { Save.data.sfx = +e.target.value;
 $("calm").addEventListener("click", () => {
   Save.data.calm = !Save.data.calm;
   Render.setCalm(Save.data.calm);
+  Save.write();
+  refreshSettings();
+});
+NEON_PRESETS.forEach((p) => {
+  const b = document.createElement("button");
+  b.dataset.hue = p.hue;
+  b.title = p.name;
+  b.setAttribute("aria-label", p.name);
+  const swatch = toHex(hslToRgb(p.hue, 1, 0.5));
+  b.style.background = swatch;
+  b.style.boxShadow = `0 0 12px ${swatch}`;
+  b.addEventListener("click", () => setNeon(p.hue));
+  $("swatches").appendChild(b);
+});
+$("hue").addEventListener("input", (e) => setNeon(+e.target.value));
+$("auto-color").addEventListener("click", () => {
+  Save.data.autoColor = !Save.data.autoColor;
   Save.write();
   refreshSettings();
 });
@@ -425,11 +462,14 @@ function loop(now) {
 }
 
 Save.load();
+Theme.listeners.push(applyThemeToPage);
+Theme.set(Save.data.hue);
 Render.setup(cvs);
 Render.setCalm(Save.data.calm);
 Sound.setVolumes(Save.data.music / 100, Save.data.sfx / 100);
 Sound.setTrack(MENU_TRACK);
 buildWaveList();
+Theme.listeners.push(paintTileArt);
 refreshTitle();
 selectWave(nextUncleared());
 show("title");

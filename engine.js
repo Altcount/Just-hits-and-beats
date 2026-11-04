@@ -286,6 +286,7 @@ function clearHazards() {
 
 function phaseBreak() {
   clearHazards();
+  if (game.move) game.bag.unshift(game.move); // comes back after the moves not yet seen
   game.phaseIdx++;
   game.phase++;
   applyLevel();

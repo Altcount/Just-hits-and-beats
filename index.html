@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -16,7 +16,7 @@
 <section id="title" class="screen">
   <div class="title-block">
     <h1>JUST HITS<br><em>&amp;</em> DODGES</h1>
-    <p class="sub">50 waves. 14 bosses. Everything lands on the beat.</p>
+    <p class="sub">50 waves. 50 bosses. Everything lands on the beat.</p>
     <nav class="stack">
       <button id="btn-play" class="primary"></button>
       <button id="btn-waves">CHOOSE WAVE</button>
@@ -80,6 +80,10 @@
       <h3>READ THE ARENA</h3>
       <p><strong>Hollow means warning. Solid means pain.</strong> Dashed outlines show where an attack will land. You are the white diamond.</p>
     </div>
+    <div class="help-card">
+      <h3>COLOR SWITCH</h3>
+      <p>Press <kbd>C</kbd> at any time in a fight to jump to the next neon color, or pick any color you like in Settings.</p>
+    </div>
   </div>
 </section>
 
@@ -97,6 +101,15 @@
         <button data-diff="normal">NORMAL<small>5 health</small></button>
         <button data-diff="brutal">BRUTAL<small>3 health, faster shots</small></button>
       </div>
+    </div>
+    <div class="field">
+      <label>NEON COLOR</label>
+      <div id="swatches" class="swatches"></div>
+      <input id="hue" class="hue" type="range" min="0" max="359" aria-label="Pick any neon color">
+    </div>
+    <div class="field">
+      <label for="auto-color">NEW COLOR EVERY WAVE</label>
+      <button id="auto-color" class="toggle" aria-pressed="false"></button>
     </div>
     <div class="field">
       <label for="vol-music">MUSIC</label>
@@ -169,8 +182,15 @@
 </div>
 
 <script src="audio.js"></script>
+<script src="theme.js"></script>
 <script src="engine.js"></script>
 <script src="bosses.js"></script>
+<script src="patterns.js"></script>
+<script src="looks.js"></script>
+<script src="roster-a.js"></script>
+<script src="roster-b.js"></script>
+<script src="roster-c.js"></script>
+<script src="waves.js"></script>
 <script src="render.js"></script>
 <script src="main.js"></script>
 </body>
