@@ -31,7 +31,9 @@ const Sound = (() => {
     g.music = ctx.createGain(); g.music.gain.value = vol.music; g.music.connect(g.master);
     g.fx = ctx.createGain(); g.fx.gain.value = vol.sfx; g.fx.connect(g.master);
     // Melodic parts duck under each kick, which is what makes the mix breathe.
-    g.pump = ctx.createGain(); g.pump.connect(g.music);
+    // The song fader is what gives sections their huge quiet-to-loud range.
+    g.song = ctx.createGain(); g.song.connect(g.music);
+    g.pump = ctx.createGain(); g.pump.connect(g.song);
 
     const noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), nd = noiseBuf.getChannelData(0);
     for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
@@ -63,14 +65,14 @@ const Sound = (() => {
       return c;
     };
     g.ch = {
-      kick: ch(0.72, 0, 0, 0, g.music), tick: ch(0.28, 0, 0, 0, g.music),
-      snare: ch(1, 0, 0.28, 0, g.music), ghost: ch(0.6, -0.12, 0.12, 0, g.music),
-      hat: ch(0.7, 0.22, 0, 0, g.music), ride: ch(0.45, -0.3, 0.1, 0, g.music),
-      tomL: ch(0.7, -0.35, 0.18, 0, g.music), tomR: ch(0.7, 0.35, 0.18, 0, g.music),
-      sub: ch(0.3, 0, 0, 0, g.pump), bass: ch(0.4, 0, 0, 0, g.pump),
-      padL: ch(0.17, -0.7, 0.4, 0, g.pump), padR: ch(0.17, 0.7, 0.4, 0, g.pump),
+      kick: ch(0.72, 0, 0, 0, g.song), tick: ch(0.28, 0, 0, 0, g.song),
+      snare: ch(1, 0, 0.28, 0, g.song), ghost: ch(0.6, -0.12, 0.12, 0, g.song),
+      hat: ch(0.7, 0.22, 0, 0, g.song), ride: ch(0.45, -0.3, 0.1, 0, g.song),
+      tomL: ch(0.7, -0.35, 0.18, 0, g.song), tomR: ch(0.7, 0.35, 0.18, 0, g.song),
+      sub: ch(0.46, 0, 0, 0, g.pump), bass: ch(0.4, 0, 0, 0, g.pump),
+      padL: ch(0.17, -0.7, 0.55, 0, g.pump), padR: ch(0.17, 0.7, 0.55, 0, g.pump),
       arpL: ch(0.5, -0.5, 0.14, 0.3, g.pump), arpR: ch(0.5, 0.5, 0.14, 0.3, g.pump),
-      lead: ch(0.75, 0, 0.26, 0.32, g.pump), wideL: ch(0.3, -0.75, 0.3, 0.2, g.pump), wideR: ch(0.3, 0.75, 0.3, 0.2, g.pump),
+      lead: ch(0.75, 0, 0.36, 0.32, g.pump), wideL: ch(0.3, -0.75, 0.3, 0.2, g.pump), wideR: ch(0.3, 0.75, 0.3, 0.2, g.pump),
       counter: ch(0.26, -0.3, 0.42, 0.18, g.pump),
       stabL: ch(0.17, -0.4, 0.14, 0.05, g.pump), stabR: ch(0.17, 0.4, 0.14, 0.05, g.pump),
       swell: ch(0.5, 0, 0.4, 0, g.music), boom: ch(0.9, 0, 0.35, 0, g.music),
@@ -102,7 +104,8 @@ const Sound = (() => {
     const ctx = G.ctx, osc = ctx.createOscillator(), g = ctx.createGain();
     osc.type = type;
     // A small scoop up into the note is what makes a chip lead feel played rather than typed.
-    if (o.scoop) { osc.frequency.setValueAtTime(f * 0.97, t); osc.frequency.exponentialRampToValueAtTime(f, t + o.scoop); }
+    if (o.from) { osc.frequency.setValueAtTime(o.from, t); osc.frequency.exponentialRampToValueAtTime(f, t + 0.16); }
+    else if (o.scoop) { osc.frequency.setValueAtTime(f * 0.97, t); osc.frequency.exponentialRampToValueAtTime(f, t + o.scoop); }
     else osc.frequency.setValueAtTime(f, t);
     if (o.det) osc.detune.value = o.det;
     if (o.to) osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.to), t + (o.toT || dur));
@@ -148,10 +151,17 @@ const Sound = (() => {
   }
 
   function playStep(step, t0, level, T) {
-    const bar = Math.floor(step / 16), n = T.bars.length;
+    const bar = Math.floor(step / 16) + (T.shift || 0), n = T.bars.length;
     const B = T.bars[bar < n ? bar : T.loopStart + ((bar - T.loopStart) % (n - T.loopStart))];
     const s = step % 16, stepT = 60 / T.bpm / 4, t = t0 + (s % 2 ? T.swing * stepT : 0), P = T.patch, C = G.ch;
 
+    if (s === 0) {
+      // Quiet sections stay quiet, and the drop arrives all at once.
+      const song = G.song.gain;
+      if (B.impact) song.setValueAtTime(B.gain, t);
+      else song.setTargetAtTime(B.gain, t, 0.35);
+      if (B.drone) voice(C.sub, "sine", mtof(B.drone) / 2, t, stepT * 16, 0.8, { a: 0.12, hold: true, r: 0.2 });
+    }
     if (B.kick[s]) kick(P.kit, t, B.kick[s] * 0.95);
     else if (s % 4 === 0 && B.kind !== "break") voice(C.tick, "sine", 95, t, 0.09, 0.7, { to: 55 });
     if (B.snare[s]) snare(P.kit, t, B.snare[s], C.snare);
@@ -187,7 +197,7 @@ const Sound = (() => {
       }
     }
 
-    if (B.pad && s === 0) {
+    if (B.pad && s === 0 && !B.gap) {
       const dur = stepT * 16 * B.pad.bars, cut = P.pad.cut * (B.kind === "break" ? 1.4 : 1) + B.progress * 600 + level * 110;
       B.pad.notes.forEach((m, i) => {
         const f = mtof(m), opt = { a: 0.14, hold: true, r: 0.25, cut, cutTo: cut * 1.5, q: 1.2 };
@@ -215,6 +225,9 @@ const Sound = (() => {
     const L = B.lead[s];
     if (L && level >= 3) {
       const dur = stepT * L.l, f = mtof(L.m), opt = { a: P.lead.a, hold: true, r: 0.09, cut: P.lead.cut, cutTo: P.lead.cut * 0.55, cutT: dur, q: 2, scoop: 0.025 };
+      // Long notes slide in from the last one, like a voice instead of a keyboard.
+      if (L.glide && T.lastLead) opt.from = T.lastLead;
+      T.lastLead = f;
       voice(C.lead, P.lead.wave, f, t, dur, 0.58 * L.v, Object.assign({ det: -P.lead.det * 0.4 }, opt));
       voice(C.lead, P.lead.wave, f, t, dur, 0.5 * L.v, Object.assign({ det: P.lead.det * 0.4 }, opt));
       if (level >= 5 || B.kind === "drop") {
@@ -229,6 +242,20 @@ const Sound = (() => {
   }
 
   function setTrack(musicDef) { track = Composer.make(musicDef); nextStep = 0; applyEcho(); }
+  // Jumps the song to the start of its next big section at the coming bar. Attacks stay in time because the beat never moves.
+  function sectionJump(beat) {
+    if (!track) return null;
+    const n = track.bars.length, wrap = (b) => (b < n ? b : track.loopStart + ((b - track.loopStart) % (n - track.loopStart)));
+    const nextBar = Math.ceil(beat / 4) + (track.shift || 0);
+    for (let k = 0; k < n; k++) {
+      const at = wrap(nextBar + k), B = track.bars[at];
+      if (B.kind === "drop" && B.impact) {
+        track.shift = (track.shift || 0) + k;
+        return B;
+      }
+    }
+    return null;
+  }
   function stopTrack() { track = null; }
   function suspend() { if (G && G.ctx.state === "running") G.ctx.suspend(); }
   function resume() { if (G && G.ctx.state === "suspended") G.ctx.resume(); }
@@ -300,5 +327,5 @@ const Sound = (() => {
     }
   }
 
-  return { init, setVolumes, setTrack, stopTrack, update, sfx, suspend, resume, render, isOn: () => !!G };
+  return { init, setVolumes, setTrack, sectionJump, stopTrack, update, sfx, suspend, resume, render, isOn: () => !!G };
 })();

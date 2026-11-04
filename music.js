@@ -109,6 +109,25 @@ const Composer = (() => {
     return bars;
   }
 
+  // A slow, singing line: long held notes that slide into each other, for the quiet sections.
+  function writeLongLine(r, chordAt, len) {
+    const bars = [];
+    let prev = null;
+    for (let i = 0; i < len; i++) {
+      const ch = chordAt(i), tone = ch + [0, 2, 4, 4, 6][Math.floor(r() * 5)], notes = [];
+      if (i % 2 === 0) {
+        notes.push({ s: 0, deg: tone, l: 20 + Math.floor(r() * 8), glide: prev !== null });
+        prev = tone;
+      } else if (r() < 0.7) {
+        const s = [8, 10, 12][Math.floor(r() * 3)];
+        notes.push({ s, deg: tone + (r() < 0.5 ? 1 : 0), l: 16 - s + 4, glide: true });
+        prev = tone;
+      }
+      bars.push(notes);
+    }
+    return bars;
+  }
+
   function make(m) {
     const r = makeRng(m.seed);
     const pick = (arr) => arr[Math.floor(r() * arr.length)];
@@ -145,18 +164,25 @@ const Composer = (() => {
     let lastDrop = -1;
     sections.forEach((sec, i) => { if (sec[0] === "drop") lastDrop = i; });
     const lift = r() < 0.6 ? 2 : 0;
+    // Songs travel through keys section by section instead of staying home the whole time.
+    const keyMoves = [0, 3, -2, 5, -4, 7, 1];
+    const slowA = r() < 0.65;
+    const LOUD = { intro: 0.28, A: 0.42, B: 0.68, C: 0.3, break: 0.14, drop: 1 };
     const bars = [];
     sections.forEach(([kind, len], secIdx) => {
-      const part = parts[kind], hr = kind === "B" || kind === "break" ? 2 : 1, up = secIdx === lastDrop ? lift : 0;
+      const part = parts[kind], hr = kind === "B" || kind === "break" ? 2 : 1;
+      const up = secIdx === lastDrop ? lift : kind === "drop" || kind === "intro" ? 0 : keyMoves[Math.floor(r() * keyMoves.length)];
       const chordAt = (i) => part.prog[Math.floor(i / hr) % 4];
       const n = (deg) => noteOf(deg) + up;
       const drop = kind === "drop", brk = kind === "break", intro = kind === "intro", halfTime = kind === "C";
-      const melody = kind === "A" || kind === "B" || kind === "C" || drop ? writeMelody(r, chordAt, len, drop ? theme : null) : null;
+      const slow = kind === "C" || (kind === "A" && slowA);
+      const melody = slow ? writeLongLine(r, chordAt, len) : kind === "A" || kind === "B" || drop ? writeMelody(r, chordAt, len, drop ? theme : null) : null;
       for (let i = 0; i < len; i++) {
         const chord = chordAt(i), next = chordAt(i + 1);
         const progress = i / Math.max(1, len - 1), last = i === len - 1, turn = i % 4 === 3;
         const bar = {
-          kind, progress, chord,
+          kind, progress, chord, gain: LOUD[kind] + (drop ? 0 : progress * 0.12),
+          drone: slow || brk || intro ? fold(n(chord), 36, 47) : null, gap: brk && last,
           kick: slots(), snare: slots(), ghost: slots(), hat: slots(), open: slots(), ride: slots(), tom: slots(),
           bass: slots(), arp: slots(), lead: slots(), counter: slots(), stab: slots(),
           pad: null, crash: i === 0 && secIdx > 0 && !brk, riser: brk && last, impact: i === 0 && drop,
@@ -175,9 +201,9 @@ const Composer = (() => {
             groove.ghost.forEach((s) => { if (r() < 0.75) bar.ghost[s] = 0.4; });
           }
         }
-        (halfTime ? [0, 4, 8, 12] : groove.hat).forEach((s) => { bar.hat[s] = s % 4 === 0 ? 0.7 : 1; });
+        if (!bar.gap) (slow ? [0, 8] : groove.hat).forEach((s) => { bar.hat[s] = s % 4 === 0 ? 0.7 : 1; });
         if (drop) for (let s = 1; s < 16; s += 2) if (!bar.hat[s] && r() < 0.5) bar.hat[s] = 0.45;
-        if (!brk && !intro) [2, 10].forEach((s) => { if (r() < 0.4) bar.open[s] = 1; });
+        if (!brk && !intro && !slow) [2, 10].forEach((s) => { if (r() < 0.4) bar.open[s] = 1; });
         if (kind === "B") [0, 4, 8, 12].forEach((s) => { bar.ride[s] = 1; });
         if ((last || (turn && r() < 0.4)) && !brk && !intro) {
           const fill = r();
@@ -188,22 +214,22 @@ const Composer = (() => {
         if (brk) [0, 8].forEach((s) => { bar.ride[s] = 0.7; });
 
         // The bassline alternates two patterns and walks into each new chord.
-        part.bass[Math.floor(i / 2) % 2].forEach((on, s) => {
-          if (!on) return;
+        (slow ? BASS[7] : part.bass[Math.floor(i / 2) % 2]).forEach((on, s) => {
+          if (!on || bar.gap) return;
           let d = chord;
           if (s >= 14 && next !== chord) d = next + (r() < 0.5 ? 1 : -1);
           const octave = !brk && s % 8 === 6 && r() < 0.35 ? 12 : 0;
           bar.bass[s] = { m: fold(n(d), 36, 47) + octave, l: intro || brk ? 6 : 2, v: s % 8 === 0 ? 1 : 0.8 };
         });
 
-        if (arpOn[kind]) {
+        if (arpOn[kind] && !bar.gap && !slow) {
           part.arp[Math.floor(i / 2) % 2].forEach((idx, s) => {
             if (idx === null) return;
             const tones = [0, 2, 4, 6, 7, 9], d = chord + tones[idx % tones.length];
             bar.arp[s] = { m: fold(n(d) + 12, root + 14, root + 30), v: s % 4 === 0 ? 1 : 0.7, pan: s % 2 };
           });
         }
-        if (stabOn[kind]) {
+        if (stabOn[kind] && !slow) {
           part.stab[Math.floor(i / 2) % 2].forEach((on, s) => {
             if (!on) return;
             const base = fold(n(chord) + 12, root + 7, root + 18);
@@ -212,7 +238,7 @@ const Composer = (() => {
         }
         if (melody) {
           melody[i].forEach((note, k) => {
-            bar.lead[note.s] = { m: fold(n(note.deg) + 12, root + 12, root + 30), l: note.l, v: k === 0 ? 1 : 0.85 };
+            bar.lead[note.s] = { m: fold(n(note.deg) + 12, root + 12, root + 30), l: note.l, v: k === 0 ? 1 : 0.85, glide: note.glide };
           });
           if (kind !== "A" && i % 2 === 0) bar.counter[0] = { m: fold(n(chord + 4) + 12, root + 7, root + 19), l: 12, v: 0.8 };
           if (kind !== "A" && i % 2 === 1) bar.counter[4] = { m: fold(n(chord + 2) + 12, root + 7, root + 19), l: 10, v: 0.8 };

@@ -374,6 +374,7 @@ function phaseBreak() {
   game.flash = 0.8;
   go(W / 2, game.def.home || 210, 2);
   Sound.sfx("phase");
+  Sound.sectionJump(game.beat);
 }
 
 function bossDown() {
