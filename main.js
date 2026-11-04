@@ -59,7 +59,7 @@ const App = {
   menuT: 0,
 };
 
-const MENU_TRACK = { bpm: 112, root: 45, scale: "minor", flavor: "half", seed: 7 };
+const MENU_TRACK = { bpm: 112, root: 45, scale: "dorian", flavor: "half", seed: 7 };
 const SCREENS = ["title", "select", "weapons", "achievements", "help", "settings", "pause", "result", "dead"];
 
 function show(name) {
@@ -229,7 +229,7 @@ function launch(n) {
   App.selected = n;
   if (Save.data.autoColor) Theme.set(n * 47 + Save.data.hue);
   startFight(n, Save.data.diff, currentWeapon());
-  Sound.setTrack(game.def.music);
+  Sound.setTrack(game.wave.music);
   App.mode = "fight";
   App.overDone = false;
   resetInput();
@@ -579,7 +579,7 @@ function loop(now) {
   } else {
     App.menuT += dt;
     const beat = (App.menuT * MENU_TRACK.bpm) / 60;
-    Sound.update(beat, 2, false);
+    Sound.update(beat, 3, false);
     const def = App.screen === "select" ? WAVES[App.selected - 1].boss : ROSTER[Math.floor(App.menuT / 8) % ROSTER.length];
     previewBoss.r = def.r;
     Render.menu(App.menuT, beat, App.screen === "title" ? def : null, previewBoss);

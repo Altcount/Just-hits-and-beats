@@ -12,10 +12,11 @@ const DIFFS = {
 
 const WEAPONS = {
   pulse: { id: "pulse", name: "PULSE", cd: STRIKE_CD, dmg: 1, windup: 0, ring: 5, desc: "A quick ring around you. Get close and keep swinging." },
-  orb: { id: "orb", name: "ORB SHOOTER", cd: STRIKE_CD, dmg: 0.6, windup: 0, ranged: true, desc: "Every attack fires an orb that hits the boss by itself, from anywhere. Small damage." },
-  slam: { id: "slam", name: "HEAVY SLAM", cd: 1.15, dmg: 3.5, windup: 0.3, ring: 13, desc: "The same ring, but it takes longer to land and recover and hits far harder." },
+  quick: { id: "quick", name: "QUICK PULSE", cd: STRIKE_CD * 0.5, dmg: 0.5, windup: 0, ring: 3, desc: "The same ring at half the damage, in half the time. Land hits twice as often." },
+  orb: { id: "orb", name: "ORB SHOOTER", cd: STRIKE_CD, dmg: 0.5, windup: 0, ranged: true, desc: "Every attack fires an orb that hits the boss by itself, from anywhere. Small damage." },
+  slam: { id: "slam", name: "HEAVY SLAM", cd: 1.15, dmg: 2.5, windup: 0.3, ring: 13, desc: "The same ring, but it takes longer to land and recover and hits far harder." },
 };
-const WEAPON_ORDER = ["pulse", "orb", "slam"];
+const WEAPON_ORDER = ["pulse", "quick", "orb", "slam"];
 
 const input = { mx: 0, my: 0, hitBuf: 0, dashBuf: 0, hitHeld: false };
 let game = null;
@@ -41,7 +42,7 @@ const rnd = (a = 1, b) => (b === undefined ? game.rng() * a : a + game.rng() * (
 function startFight(n, diffKey, weaponId) {
   const w = WAVES[n - 1], def = w.boss, diff = DIFFS[diffKey] || DIFFS.normal;
   game = {
-    n, wave: w, def, diff, bpm: def.music.bpm, state: "intro", t: 0, beat: 0, fightStart: 0,
+    n, wave: w, def, diff, bpm: w.music.bpm, state: "intro", t: 0, beat: 0, fightStart: 0,
     hz: [], tl: [], move: null, moveBase: 0, moveEnd: INTRO_BEATS, bag: [], lastMove: null,
     phase: 0, phaseIdx: 0, L: 0, spMul: 1, dnMul: 1,
     player: {
@@ -324,7 +325,7 @@ function landHit(target, dmg, perfect, surge) {
   if (perfect) st.perfects++;
   if (surge) st.surges++;
   if (surge >= MAX_CHARGE) st.fullSurge = true;
-  const heavy = dmg >= 3;
+  const heavy = dmg >= 2.5;
   sparks(target.x, target.y, surge ? 34 : perfect || heavy ? 18 : 8, surge ? 420 : 260);
   game.rings.push({ x: target.x, y: target.y, r: b.r * 0.6, to: b.r * 1.8, life: 0.22, age: 0, w: 3 });
   const shown = Number.isInteger(dmg) ? String(dmg) : dmg.toFixed(1);
@@ -579,11 +580,11 @@ function stepGame(dt) {
   updateFx(dt);
 }
 
-// Which layers of the song play right now: quiet in the intro, louder as the boss runs out of health.
+// Which layers of the song play right now: stripped back in the countdown, fuller with each phase and boss form.
 function musicLevel() {
   if (!game) return 2;
   if (game.state === "intro") return 1;
-  return clamp(2 + game.phase + (game.wave.tier >= 2 ? 1 : 0), 2, 4);
+  return clamp(3 + game.phase + game.wave.form, 3, 5);
 }
 
 function rankFor(hits) { return hits === 0 ? "S" : hits <= 1 ? "A" : hits <= 3 ? "B" : "C"; }

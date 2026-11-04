@@ -120,9 +120,9 @@ h1 em { font-style: normal; color: var(--ice); }
 .d-title { color: var(--ice); font-weight: 600; font-size: 15px; }
 .d-tag { color: var(--dim); font-size: 14px; line-height: 1.35; }
 .detail h4 { margin-top: 8px; font-size: 13px; letter-spacing: .1em; color: var(--dim); }
-#d-moves { list-style: none; margin: 0; padding: 0; font-size: 14px; font-weight: 600; color: var(--ice); }
-#d-moves li { padding: 2px 0; }
-#d-fight { margin-top: auto; flex: none; }
+#d-moves { list-style: none; margin: 0; padding: 0; font-size: 13px; font-weight: 600; color: var(--ice); columns: 2; column-gap: 10px; }
+#d-moves li { padding: 2px 0; break-inside: avoid; line-height: 1.15; }
+#d-fight { margin-top: auto; flex: none; position: sticky; bottom: 0; }
 
 /* ---------- help + settings ---------- */
 .help-body, .settings-body { flex: 1; overflow-y: auto; min-height: 0; padding-top: 18px; }
@@ -172,7 +172,7 @@ input[type="range"] { width: 100%; accent-color: var(--cyan); height: 28px; }
 .weapon-picker button.on { background: var(--cyan); color: var(--black); border-color: var(--cyan); }
 .weapon-picker button.on small, .weapon-picker button.on em { color: var(--black); }
 .weapon-picker button:disabled { opacity: .55; cursor: not-allowed; background: transparent; border-color: var(--line); }
-.weapon-picker.compact { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.weapon-picker.compact { grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .weapon-picker.compact button { padding: 8px 4px; text-align: center; align-items: center; }
 .weapon-picker.compact b { font-size: 12px; line-height: 1.1; }
 .weapon-picker.compact small, .weapon-picker.compact em { display: none; }
