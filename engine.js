@@ -10,6 +10,13 @@ const DIFFS = {
   brutal: { hp: 3, sp: 1.08, label: "BRUTAL" },
 };
 
+const WEAPONS = {
+  pulse: { id: "pulse", name: "PULSE", cd: STRIKE_CD, dmg: 1, windup: 0, ring: 5, desc: "A quick ring around you. Get close and keep swinging." },
+  orb: { id: "orb", name: "ORB SHOOTER", cd: STRIKE_CD, dmg: 0.6, windup: 0, ranged: true, desc: "Every attack fires an orb that hits the boss by itself, from anywhere. Small damage." },
+  slam: { id: "slam", name: "HEAVY SLAM", cd: 1.15, dmg: 3.5, windup: 0.3, ring: 13, desc: "The same ring, but it takes longer to land and recover and hits far harder." },
+};
+const WEAPON_ORDER = ["pulse", "orb", "slam"];
+
 const input = { mx: 0, my: 0, hitBuf: 0, dashBuf: 0, hitHeld: false };
 let game = null;
 
@@ -31,7 +38,7 @@ function makeRng(seed) {
 }
 const rnd = (a = 1, b) => (b === undefined ? game.rng() * a : a + game.rng() * (b - a));
 
-function startFight(n, diffKey) {
+function startFight(n, diffKey, weaponId) {
   const w = WAVES[n - 1], def = w.boss, diff = DIFFS[diffKey] || DIFFS.normal;
   game = {
     n, wave: w, def, diff, bpm: def.music.bpm, state: "intro", t: 0, beat: 0, fightStart: 0,
@@ -39,16 +46,16 @@ function startFight(n, diffKey) {
     phase: 0, phaseIdx: 0, L: 0, spMul: 1, dnMul: 1,
     player: {
       x: W / 2, y: 590, hp: diff.hp, maxHp: diff.hp, inv: 0, dashT: 0, dashI: 0, dashCd: 0,
-      dirX: 0, dirY: -1, hitCd: 0, charge: 0, dodged: false, slowT: 0, alive: true, tilt: 0,
+      dirX: 0, dirY: -1, hitCd: 0, charge: 0, dodged: false, slowT: 0, alive: true, tilt: 0, weapon: WEAPONS[weaponId] ? weaponId : "pulse", windup: 0,
     },
     boss: {
       x: W / 2, y: -140, bx: W / 2, by: -140, r: def.r, hp: w.hp, maxHp: w.hp, flash: 0, armor: 0,
       tw: null, parts: [], heading: Math.PI / 2, wobble: 1, alive: true,
     },
     rng: makeRng(n * 7919 + 13),
-    parts: [], rings: [], floats: [], shake: 0, flash: 0, dark: 0, muted: 0,
+    parts: [], rings: [], floats: [], orbs: [], shake: 0, flash: 0, dark: 0, muted: 0,
     gravity: null, moveFlash: 0, phaseFlash: 0, endT: 0,
-    stats: { hits: 0, perfects: 0, dodges: 0, strikes: 0, landed: 0, surges: 0, time: 0 },
+    stats: { hits: 0, perfects: 0, dodges: 0, strikes: 0, landed: 0, surges: 0, time: 0, maxHit: 0, fullSurge: false },
   };
   const b = game.boss;
   b.parts.push({ x: b.x, y: b.y, r: def.r, main: true });
@@ -59,7 +66,7 @@ function startFight(n, diffKey) {
 }
 
 function applyLevel() {
-  const g = (game.n - 1) / 49;
+  const g = (game.n - 1) / (WAVES.length - 1);
   game.L = Math.min(5, game.wave.tier + game.phase);
   game.spMul = (1 + 0.04 * game.L + 0.22 * g) * game.diff.sp;
   game.dnMul = 1 + 0.1 * game.L + 0.35 * g;
@@ -242,43 +249,106 @@ function nextMove() {
 }
 
 /* ---------- player actions ---------- */
-function strike() {
-  const p = game.player, b = game.boss;
-  p.hitCd = STRIKE_CD;
-  game.stats.strikes++;
-  game.rings.push({ x: p.x, y: p.y, r: 14, to: STRIKE_R, life: 0.2, age: 0, w: 5 });
-  let target = null;
-  for (const part of b.parts) {
-    if (part.hit !== false && Math.hypot(part.x - p.x, part.y - p.y) - part.r < STRIKE_R) { target = part; break; }
+function onBeatNow() {
+  return (Math.abs(game.beat - Math.round(game.beat)) * 60) / game.bpm < PERFECT_WIN;
+}
+function hittablePart(reach) {
+  const p = game.player;
+  let best = null, bestD = Infinity;
+  for (const part of game.boss.parts) {
+    const d = Math.hypot(part.x - p.x, part.y - p.y) - part.r;
+    if (part.hit !== false && d < reach && d < bestD) { best = part; bestD = d; }
   }
+  return best;
+}
+const fightOpen = () => game.state === "fight" && game.boss.armor <= game.t;
+
+// Pressing attack: the weapon decides whether that means a shot, a wind-up or an instant ring.
+function attack() {
+  const p = game.player, w = WEAPONS[p.weapon];
+  p.hitCd = w.cd;
+  game.stats.strikes++;
+  if (w.ranged) fireOrb(w);
+  else if (w.windup) { p.windup = w.windup; Sound.sfx("dash"); }
+  else strike();
+}
+
+function fireOrb(w) {
+  const p = game.player, target = hittablePart(Infinity);
+  Sound.sfx("whiff");
+  if (!target || game.state !== "fight") return;
+  const perfect = onBeatNow(), open = fightOpen();
+  const surge = open ? p.charge : 0;
+  if (surge) p.charge = 0;
+  game.orbs.push({ x: p.x, y: p.y, target, dmg: w.dmg * (perfect ? 2 : 1) + surge * 2, perfect, surge });
+}
+
+function updateOrbs(dt) {
+  for (let i = game.orbs.length - 1; i >= 0; i--) {
+    const o = game.orbs[i], dx = o.target.x - o.x, dy = o.target.y - o.y, d = Math.hypot(dx, dy), s = 1050 * dt;
+    if (d <= o.target.r || d <= s) {
+      game.orbs.splice(i, 1);
+      if (fightOpen()) landHit(o.target, o.dmg, o.perfect, o.surge);
+      else addFloat(o.target.x, o.target.y - game.boss.r, "ARMORED", 0.6);
+      if (game.state !== "fight") return;
+    } else {
+      o.x += (dx / d) * s;
+      o.y += (dy / d) * s;
+    }
+  }
+}
+
+// The ring landing, for Pulse straight away and for Heavy Slam at the end of its wind-up.
+function strike() {
+  const p = game.player, b = game.boss, w = WEAPONS[p.weapon];
+  game.rings.push({ x: p.x, y: p.y, r: 14, to: STRIKE_R, life: 0.2, age: 0, w: w.ring });
+  if (w.windup) game.shake = Math.max(game.shake, 7);
+  const target = hittablePart(STRIKE_R);
   if (!target) { Sound.sfx("whiff"); return; }
-  if (game.state !== "fight" || b.armor > game.t) {
+  if (!fightOpen()) {
     addFloat(target.x, target.y - b.r, "ARMORED", 0.6);
     Sound.sfx("whiff");
     return;
   }
-  const off = (Math.abs(game.beat - Math.round(game.beat)) * 60) / game.bpm;
-  const perfect = off < PERFECT_WIN;
-  const surge = p.charge;
-  const dmg = 1 + (perfect ? 1 : 0) + surge * 2;
+  const perfect = onBeatNow(), surge = p.charge;
+  p.charge = 0;
+  landHit(target, w.dmg * (perfect ? 2 : 1) + surge * 2, perfect, surge);
+}
+
+function landHit(target, dmg, perfect, surge) {
+  const b = game.boss, st = game.stats;
   b.hp -= dmg;
   b.flash = 1;
-  game.stats.landed++;
-  if (perfect) game.stats.perfects++;
-  if (surge) { game.stats.surges++; p.charge = 0; }
-  sparks(target.x, target.y, surge ? 34 : perfect ? 18 : 8, surge ? 420 : 260);
+  st.landed++;
+  st.maxHit = Math.max(st.maxHit, dmg);
+  if (perfect) st.perfects++;
+  if (surge) st.surges++;
+  if (surge >= MAX_CHARGE) st.fullSurge = true;
+  const heavy = dmg >= 3;
+  sparks(target.x, target.y, surge ? 34 : perfect || heavy ? 18 : 8, surge ? 420 : 260);
   game.rings.push({ x: target.x, y: target.y, r: b.r * 0.6, to: b.r * 1.8, life: 0.22, age: 0, w: 3 });
-  addFloat(target.x, target.y - b.r - 6, surge ? "SURGE  " + dmg : perfect ? "ON BEAT  " + dmg : String(dmg), surge || perfect ? 0.9 : 0.5);
-  game.shake = Math.max(game.shake, surge ? 12 : perfect ? 6 : 2);
+  const shown = Number.isInteger(dmg) ? String(dmg) : dmg.toFixed(1);
+  addFloat(target.x, target.y - b.r - 6, surge ? "SURGE  " + shown : perfect ? "ON BEAT  " + shown : shown, surge || perfect ? 0.9 : 0.5);
+  game.shake = Math.max(game.shake, surge ? 12 : perfect ? 6 : heavy ? 5 : 2);
   Sound.sfx(surge ? "surge" : perfect ? "perfect" : "hit");
   if (b.hp <= 0) bossDown();
   else if (game.phaseIdx < game.wave.phases.length && b.hp <= b.maxHp * game.wave.phases[game.phaseIdx]) phaseBreak();
+}
+
+// Weapon switching mid-fight keeps the current cooldown, so swapping can't skip Heavy Slam's recovery.
+function switchWeapon(id) {
+  const p = game.player;
+  if (!WEAPONS[id] || p.weapon === id) return;
+  p.weapon = id;
+  p.windup = 0;
+  addFloat(p.x, p.y - 34, WEAPONS[id].name, 0.5);
 }
 
 function clearHazards() {
   for (const h of game.hz) if (h.k === "b") sparks(h.x, h.y, 1, 120);
   game.hz.length = 0;
   game.tl.length = 0;
+  game.orbs.length = 0;
   game.gravity = null;
   game.dark = 0;
   game.muted = 0;
@@ -327,6 +397,7 @@ function hurtPlayer() {
   p.hp--;
   p.inv = HIT_I;
   p.charge = 0;
+  p.windup = 0;
   game.stats.hits++;
   game.shake = 18;
   game.flash = 0.55;
@@ -396,7 +467,10 @@ function updatePlayer(dt) {
   p.y = clamp(p.y, 12, H - 12);
   p.tilt += (mx * 0.5 - p.tilt) * Math.min(1, dt * 12);
 
-  if ((input.hitBuf > 0 || input.hitHeld) && p.hitCd <= 0) { input.hitBuf = 0; strike(); }
+  if (p.windup > 0) {
+    p.windup -= dt;
+    if (p.windup <= 0) { p.windup = 0; strike(); }
+  } else if ((input.hitBuf > 0 || input.hitHeld) && p.hitCd <= 0) { input.hitBuf = 0; attack(); }
 }
 
 function updateBoss(dt) {
@@ -500,6 +574,7 @@ function stepGame(dt) {
   updateBoss(dt);
   updateHazards(dt);
   updatePlayer(dt);
+  if (game.state === "fight") updateOrbs(dt);
   collide();
   updateFx(dt);
 }

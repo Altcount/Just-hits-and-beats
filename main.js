@@ -2,14 +2,15 @@
 // Screens, input, saving and the frame loop.
 const Save = {
   key: "just-hits-and-dodges-v1",
-  data: { waves: {}, diff: "normal", music: 70, sfx: 80, calm: false, bestRun: 0, hue: 184, autoColor: false },
+  data: { v: 2, waves: {}, diff: "normal", music: 70, sfx: 80, calm: false, bestRun: 0, hue: 184, autoColor: false, weapon: "pulse", ach: {},
+    totals: { perfects: 0, dodges: 0, deaths: 0, weaponWins: {}, colors: [] } },
   load() {
     try {
       const raw = localStorage.getItem(this.key);
       if (!raw) return;
       const d = JSON.parse(raw);
       if (!d || typeof d !== "object") return;
-      if (d.waves && typeof d.waves === "object") this.data.waves = d.waves;
+      if (d.waves && typeof d.waves === "object") this.data.waves = d.v === 2 ? d.waves : this.fromOldWaves(d.waves);
       if (DIFFS[d.diff]) this.data.diff = d.diff;
       if (typeof d.music === "number") this.data.music = d.music;
       if (typeof d.sfx === "number") this.data.sfx = d.sfx;
@@ -17,7 +18,26 @@ const Save = {
       if (typeof d.bestRun === "number") this.data.bestRun = d.bestRun;
       if (typeof d.hue === "number") this.data.hue = d.hue;
       if (typeof d.autoColor === "boolean") this.data.autoColor = d.autoColor;
+      if (WEAPONS[d.weapon]) this.data.weapon = d.weapon;
+      if (d.ach && typeof d.ach === "object") this.data.ach = d.ach;
+      if (d.totals && typeof d.totals === "object") {
+        const t = this.data.totals, l = d.totals;
+        if (typeof l.perfects === "number") t.perfects = l.perfects;
+        if (typeof l.dodges === "number") t.dodges = l.dodges;
+        if (typeof l.deaths === "number") t.deaths = l.deaths;
+        if (l.weaponWins && typeof l.weaponWins === "object") t.weaponWins = l.weaponWins;
+        if (Array.isArray(l.colors)) t.colors = l.colors;
+      }
     } catch (e) { /* an unreadable save just means starting fresh */ }
+  },
+  // Before each boss had three waves, wave N was that boss with all its moves. Clearing that covers all three forms.
+  fromOldWaves(old) {
+    const out = {};
+    Object.keys(old).forEach((k) => {
+      const n = +k;
+      if (Number.isInteger(n) && n >= 1 && n <= 50 && old[k]) [3 * n - 2, 3 * n - 1, 3 * n].forEach((w) => { out[w] = old[k]; });
+    });
+    return out;
   },
   write() {
     try { localStorage.setItem(this.key, JSON.stringify(this.data)); } catch (e) { /* private mode */ }
@@ -40,7 +60,7 @@ const App = {
 };
 
 const MENU_TRACK = { bpm: 112, root: 45, scale: "minor", flavor: "half", seed: 7 };
-const SCREENS = ["title", "select", "help", "settings", "pause", "result", "dead"];
+const SCREENS = ["title", "select", "weapons", "achievements", "help", "settings", "pause", "result", "dead"];
 
 function show(name) {
   SCREENS.forEach((s) => { $(s).hidden = s !== name; });
@@ -63,28 +83,106 @@ function refreshTitle() {
   $("title-progress").textContent = c ? `${c} of ${WAVES.length} waves cleared   //   best run ${Save.data.bestRun}` : "";
 }
 
+/* ---------- weapons ---------- */
+const weaponsUnlocked = () => !!Save.data.waves[1];
+const currentWeapon = () => (weaponsUnlocked() ? Save.data.weapon : "pulse");
+function setWeapon(id) {
+  if (!WEAPONS[id] || (id !== "pulse" && !weaponsUnlocked())) return;
+  Save.data.weapon = id;
+  Save.write();
+  if (game) switchWeapon(id);
+  refreshWeapons();
+}
+function nextWeapon() {
+  if (!weaponsUnlocked() || !game) return;
+  setWeapon(WEAPON_ORDER[(WEAPON_ORDER.indexOf(game.player.weapon) + 1) % WEAPON_ORDER.length]);
+}
+function refreshWeapons() {
+  const open = weaponsUnlocked(), cur = currentWeapon();
+  $("weapon-note").textContent = open ? "Press Q during a fight to switch at any time." : "Beat wave 1 to unlock weapon switching.";
+  $("t-swap").hidden = !open;
+  document.querySelectorAll(".weapon-picker").forEach((box) => {
+    box.innerHTML = "";
+    WEAPON_ORDER.forEach((id) => {
+      const w = WEAPONS[id], b = document.createElement("button"), locked = id !== "pulse" && !open;
+      b.disabled = locked;
+      b.className = id === cur ? "on" : "";
+      const nm = document.createElement("b"); nm.textContent = w.name;
+      const ds = document.createElement("small"); ds.textContent = w.desc;
+      const st = document.createElement("em"); st.textContent = locked ? "LOCKED" : id === cur ? "EQUIPPED" : "CLICK TO EQUIP";
+      b.append(nm, ds, st);
+      b.addEventListener("click", () => { Sound.sfx("ui"); setWeapon(id); });
+      box.appendChild(b);
+    });
+  });
+}
+
+/* ---------- achievements ---------- */
+function refreshAchievements() {
+  const list = $("ach-list"), got = Save.data.ach;
+  list.innerHTML = "";
+  ACHIEVEMENTS.forEach((a) => {
+    const el = document.createElement("div");
+    el.className = "ach" + (got[a.id] ? " got" : "");
+    const nm = document.createElement("b"); nm.textContent = a.name;
+    const ds = document.createElement("span"); ds.textContent = a.desc;
+    el.append(nm, ds);
+    list.appendChild(el);
+  });
+  $("ach-count").textContent = `${ACHIEVEMENTS.filter((a) => got[a.id]).length} / ${ACHIEVEMENTS.length}`;
+}
+function toast(name) {
+  const el = document.createElement("div");
+  el.className = "toast";
+  const top = document.createElement("small"); top.textContent = "ACHIEVEMENT";
+  const nm = document.createElement("b"); nm.textContent = name;
+  el.append(top, nm);
+  $("toast").appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+// Grants anything newly earned and returns those achievements, so screens can list them.
+function checkAchievements(c) {
+  const ctx = Object.assign({ won: false, n: 0, stats: { hits: 0, perfects: 0, dodges: 0, fullSurge: false, maxHit: 0, time: Infinity }, hpLeft: 0, run: 0 }, c, { s: Save.data });
+  const fresh = ACHIEVEMENTS.filter((a) => !Save.data.ach[a.id] && a.test(ctx));
+  fresh.forEach((a) => { Save.data.ach[a.id] = true; toast(a.name); });
+  if (fresh.length) Sound.sfx("win");
+  return fresh;
+}
+function addFightTotals(s) {
+  const t = Save.data.totals;
+  t.perfects += s.perfects;
+  t.dodges += s.dodges;
+}
+
 /* ---------- wave select ---------- */
 function paintTileArt() {
-  document.querySelectorAll(".tile canvas").forEach((art) => Render.preview(art, WAVES[+art.dataset.wave - 1].boss, 0.6, 0.3));
+  document.querySelectorAll(".boss-card canvas").forEach((art) => Render.preview(art, ROSTER[+art.dataset.boss], 0.6, 0.3));
 }
 function buildWaveList() {
   const list = $("wave-list");
   list.innerHTML = "";
-  WAVES.forEach((w) => {
-    const b = document.createElement("button");
-    b.className = "tile";
-    b.dataset.wave = w.n;
-    b.title = `Wave ${w.n}: ${w.boss.name}`;
+  ROSTER.forEach((def, i) => {
+    const card = document.createElement("div");
+    card.className = "boss-card";
     const art = document.createElement("canvas");
     art.width = art.height = 112;
-    art.dataset.wave = w.n;
-    const num = document.createElement("span"); num.className = "t-num"; num.textContent = pad2(w.n);
-    const rank = document.createElement("span"); rank.className = "t-rank";
-    const nm = document.createElement("span"); nm.className = "t-name"; nm.textContent = w.boss.name;
-    b.append(art, num, rank, nm);
-    b.addEventListener("click", () => selectWave(w.n));
-    b.addEventListener("dblclick", () => beginRun(w.n));
-    list.appendChild(b);
+    art.dataset.boss = i;
+    const nm = document.createElement("span"); nm.className = "t-name"; nm.textContent = def.name;
+    const tiles = document.createElement("div"); tiles.className = "tiles";
+    WAVES.filter((w) => w.boss === def).forEach((w) => {
+      const b = document.createElement("button");
+      b.className = "tile";
+      b.dataset.wave = w.n;
+      b.title = `Wave ${w.n}: ${def.name}, ${w.label}, ${w.moves.length} moves`;
+      const num = document.createElement("span"); num.className = "t-num"; num.textContent = pad2(w.n);
+      const rank = document.createElement("span"); rank.className = "t-rank";
+      b.append(num, rank);
+      b.addEventListener("click", () => selectWave(w.n));
+      b.addEventListener("dblclick", () => beginRun(w.n));
+      tiles.appendChild(b);
+    });
+    card.append(art, nm, tiles);
+    list.appendChild(card);
   });
   paintTileArt();
   refreshTiles();
@@ -95,6 +193,7 @@ function refreshTiles() {
     t.querySelector(".t-rank").textContent = rec ? rec.rank : "";
     t.className = "tile" + (rec ? ` cleared rank-${rec.rank}` : "") + (n === App.selected ? " active" : "");
   });
+  document.querySelectorAll(".boss-card").forEach((c) => c.classList.toggle("has-active", !!c.querySelector(".tile.active")));
   $("select-count").textContent = `${clearedCount()} / ${WAVES.length} CLEARED`;
 }
 function selectWave(n) {
@@ -129,7 +228,7 @@ function launch(n) {
   Sound.resume();
   App.selected = n;
   if (Save.data.autoColor) Theme.set(n * 47 + Save.data.hue);
-  startFight(n, Save.data.diff);
+  startFight(n, Save.data.diff, currentWeapon());
   Sound.setTrack(game.def.music);
   App.mode = "fight";
   App.overDone = false;
@@ -179,7 +278,21 @@ function finishWin() {
   };
   App.runCount++;
   Save.data.bestRun = Math.max(Save.data.bestRun, App.runCount);
+  const firstUnlock = n === 1 && !prev;
+  addFightTotals(s);
+  const wins = Save.data.totals.weaponWins;
+  wins[g.player.weapon] = (wins[g.player.weapon] || 0) + 1;
+  const fresh = checkAchievements({ won: true, n, stats: s, hpLeft: g.player.hp, run: App.runCount });
   Save.write();
+  $("r-unlock").hidden = !firstUnlock;
+  $("r-ach").hidden = !fresh.length;
+  $("r-ach").innerHTML = "";
+  fresh.forEach((a) => {
+    const li = document.createElement("li");
+    li.textContent = `ACHIEVEMENT: ${a.name}`;
+    $("r-ach").appendChild(li);
+  });
+  refreshWeapons();
   $("r-wave").textContent = `WAVE ${pad2(n)}  //  ${g.wave.label}`;
   $("r-title").textContent = n === WAVES.length ? "SIGNAL RESTORED" : `${g.def.name} DOWN`;
   $("r-rank").textContent = rank;
@@ -205,6 +318,10 @@ function finishDeath() {
   const g = game, left = Math.ceil((g.boss.hp / g.boss.maxHp) * 100);
   $("x-wave").textContent = `WAVE ${pad2(g.n)}  //  ${g.def.name}`;
   $("x-info").textContent = `It had ${left}% health left. Run ended after ${App.runCount} cleared.`;
+  addFightTotals(g.stats);
+  Save.data.totals.deaths++;
+  checkAchievements({ n: g.n, stats: Object.assign({}, g.stats, { hits: 1, time: Infinity }), run: App.runCount });
+  Save.write();
   App.runCount = 0;
   App.mode = "over";
   App.overShownAt = performance.now();
@@ -237,6 +354,7 @@ window.addEventListener("keydown", (e) => {
     if (e.code === "Escape" || e.code === "KeyP") { pauseGame(); e.preventDefault(); return; }
     if (e.code === "KeyR") { launch(game.n); e.preventDefault(); }
     if (e.code === "KeyC") { nextNeon(); e.preventDefault(); }
+    if (e.code === "KeyQ") { nextWeapon(); e.preventDefault(); }
     return;
   }
   if (e.repeat) return;
@@ -262,9 +380,9 @@ window.addEventListener("keyup", (e) => {
 });
 // Arrow keys walk the wave grid: left/right by wave, up/down by boss.
 function waveKeys(e) {
-  const tiles = [...document.querySelectorAll(".tile")];
-  const cols = Math.max(1, tiles.filter((t) => t.offsetTop === tiles[0].offsetTop).length);
-  const d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols, ArrowDown: cols }[e.code];
+  const cards = [...document.querySelectorAll(".boss-card")];
+  const cols = Math.max(1, cards.filter((t) => t.offsetTop === cards[0].offsetTop).length);
+  const d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -3 * cols, ArrowDown: 3 * cols }[e.code];
   if (!d) return;
   e.preventDefault();
   const n = clamp(App.selected + d, 1, WAVES.length);
@@ -330,6 +448,7 @@ document.addEventListener("visibilitychange", () => { if (document.hidden && App
   hold($("t-hit"), () => { input.hitBuf = 0.12; input.hitHeld = true; }, () => { input.hitHeld = false; });
   hold($("t-dodge"), () => { input.dashBuf = 0.12; });
   $("t-pause").addEventListener("click", pauseGame);
+  $("t-swap").addEventListener("click", nextWeapon);
 })();
 
 /* ---------- menu wiring ---------- */
@@ -345,6 +464,8 @@ document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click"
 $("btn-play").addEventListener("click", () => beginRun(nextUncleared()));
 $("btn-waves").addEventListener("click", () => { App.selected = nextUncleared(); openSelect(); });
 $("btn-help").addEventListener("click", () => show("help"));
+$("btn-weapons").addEventListener("click", () => { refreshWeapons(); show("weapons"); });
+$("btn-ach").addEventListener("click", () => { refreshAchievements(); show("achievements"); });
 $("btn-settings").addEventListener("click", () => { refreshSettings(); show("settings"); });
 $("d-fight").addEventListener("click", () => beginRun(App.selected));
 $("btn-resume").addEventListener("click", resumeGame);
@@ -359,6 +480,10 @@ $("btn-x-quit").addEventListener("click", () => toMenu("select"));
 function setNeon(hue) {
   Save.data.hue = ((hue % 360) + 360) % 360;
   Theme.set(Save.data.hue);
+  // Near-identical hues on the slider count as one color for the achievement.
+  const bucket = Math.round(Save.data.hue / 20) % 18, cols = Save.data.totals.colors;
+  if (!cols.includes(bucket)) cols.push(bucket);
+  if (cols.length >= 6) checkAchievements({});
   Save.write();
   refreshSettings();
 }
@@ -422,6 +547,10 @@ $("reset").addEventListener("click", () => {
   if (!resetArmed) { resetArmed = true; $("reset").textContent = "CLICK AGAIN TO ERASE EVERYTHING"; return; }
   Save.data.waves = {};
   Save.data.bestRun = 0;
+  Save.data.weapon = "pulse";
+  Save.data.ach = {};
+  Save.data.totals = { perfects: 0, dodges: 0, deaths: 0, weaponWins: {}, colors: [] };
+  refreshWeapons();
   Save.write();
   refreshTitle();
   refreshTiles();
@@ -469,6 +598,7 @@ Render.setCalm(Save.data.calm);
 Sound.setVolumes(Save.data.music / 100, Save.data.sfx / 100);
 Sound.setTrack(MENU_TRACK);
 buildWaveList();
+refreshWeapons();
 Theme.listeners.push(paintTileArt);
 refreshTitle();
 selectWave(nextUncleared());

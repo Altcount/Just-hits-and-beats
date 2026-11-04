@@ -16,10 +16,12 @@
 <section id="title" class="screen">
   <div class="title-block">
     <h1>JUST HITS<br><em>&amp;</em> DODGES</h1>
-    <p class="sub">50 waves. 50 bosses. Everything lands on the beat.</p>
+    <p class="sub">150 waves. 50 bosses. Everything lands on the beat.</p>
     <nav class="stack">
       <button id="btn-play" class="primary"></button>
       <button id="btn-waves">CHOOSE WAVE</button>
+      <button id="btn-weapons">WEAPONS</button>
+      <button id="btn-ach">ACHIEVEMENTS</button>
       <button id="btn-help">HOW TO PLAY</button>
       <button id="btn-settings">SETTINGS</button>
     </nav>
@@ -44,8 +46,33 @@
       <h4>MOVES IN THIS WAVE</h4>
       <ul id="d-moves"></ul>
       <p id="d-best" class="meta"></p>
+      <h4>WEAPON</h4>
+      <div class="weapon-picker compact"></div>
       <button id="d-fight" class="primary">FIGHT</button>
     </aside>
+  </div>
+</section>
+
+<section id="weapons" class="screen panel-screen" hidden>
+  <header class="bar">
+    <button class="back" data-go="title">&larr; BACK</button>
+    <h2>WEAPONS</h2>
+    <span></span>
+  </header>
+  <div class="scroll-body">
+    <p id="weapon-note" class="note"></p>
+    <div class="weapon-picker"></div>
+  </div>
+</section>
+
+<section id="achievements" class="screen panel-screen" hidden>
+  <header class="bar">
+    <button class="back" data-go="title">&larr; BACK</button>
+    <h2>ACHIEVEMENTS</h2>
+    <span id="ach-count" class="meta"></span>
+  </header>
+  <div class="scroll-body">
+    <div id="ach-list" class="ach-list"></div>
   </div>
 </section>
 
@@ -79,6 +106,10 @@
     <div class="help-card">
       <h3>READ THE ARENA</h3>
       <p><strong>Hollow means warning. Solid means pain.</strong> Dashed outlines show where an attack will land. You are the white diamond.</p>
+    </div>
+    <div class="help-card">
+      <h3>WEAPONS</h3>
+      <p>Beat wave 1 to unlock switching. Choose one in the Weapons menu, or press <kbd>Q</kbd> in a fight to swap between Pulse, Orb Shooter and Heavy Slam.</p>
     </div>
     <div class="help-card">
       <h3>COLOR SWITCH</h3>
@@ -154,6 +185,8 @@
       <div><dt>DODGES</dt><dd id="r-dodge"></dd></div>
     </dl>
     <p id="r-run" class="meta"></p>
+    <p id="r-unlock" class="note" hidden>WEAPON SWITCHING UNLOCKED! Press Q in a fight, or choose in the Weapons menu.</p>
+    <ul id="r-ach" class="r-ach" hidden></ul>
     <nav class="stack">
       <button id="btn-next" class="primary"></button>
       <button id="btn-replay">REPLAY WAVE</button>
@@ -174,10 +207,13 @@
   </div>
 </section>
 
+<div id="toast" aria-live="polite"></div>
+
 <div id="touch" hidden>
   <div id="stick"><div id="nub"></div></div>
   <button id="t-dodge" class="t-btn">DODGE</button>
   <button id="t-hit" class="t-btn big">HIT</button>
+  <button id="t-swap" class="t-small swap" aria-label="Switch weapon" hidden>Q</button>
   <button id="t-pause" class="t-small" aria-label="Pause">II</button>
 </div>
 
@@ -191,6 +227,7 @@
 <script src="roster-b.js"></script>
 <script src="roster-c.js"></script>
 <script src="waves.js"></script>
+<script src="achievements.js"></script>
 <script src="render.js"></script>
 <script src="main.js"></script>
 </body>

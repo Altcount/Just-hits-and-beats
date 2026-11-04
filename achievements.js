@@ -1,0 +1,32 @@
+﻿"use strict";
+// Each test gets c: { won, n, stats, hpLeft, maxHp, run, s (the save) }. Checked whenever a fight ends.
+const clearedWith = (c, rank) => Object.values(c.s.waves).filter((w) => w.rank === rank).length;
+const ACHIEVEMENTS = [
+  { id: "first", name: "FIRST CONTACT", desc: "Clear any wave.", test: (c) => c.won },
+  { id: "armed", name: "ARMED AND DANGEROUS", desc: "Beat wave 1 to unlock weapon switching.", test: (c) => !!c.s.waves[1] },
+  { id: "orb", name: "ORB WEAVER", desc: "Clear a wave with the Orb Shooter.", test: (c) => c.s.totals.weaponWins.orb > 0 },
+  { id: "slam", name: "SLEDGEHAMMER", desc: "Clear a wave with the Heavy Slam.", test: (c) => c.s.totals.weaponWins.slam > 0 },
+  { id: "kit", name: "FULL KIT", desc: "Clear a wave with all three weapons.", test: (c) => ["pulse", "orb", "slam"].every((w) => c.s.totals.weaponWins[w] > 0) },
+  { id: "flawless", name: "FLAWLESS", desc: "Clear a wave without taking a hit.", test: (c) => c.won && c.stats.hits === 0 },
+  { id: "breath", name: "LAST BREATH", desc: "Clear a wave with 1 health left.", test: (c) => c.won && c.hpLeft === 1 },
+  { id: "pocket", name: "IN THE POCKET", desc: "Land 25 on-beat hits in one fight.", test: (c) => c.stats.perfects >= 25 },
+  { id: "metro", name: "HUMAN METRONOME", desc: "Land 500 on-beat hits in total.", test: (c) => c.s.totals.perfects >= 500 },
+  { id: "nimble", name: "UNTOUCHABLE", desc: "Dodge through 10 attacks in one fight.", test: (c) => c.stats.dodges >= 10 },
+  { id: "slip", name: "SLIPSTREAM", desc: "Dodge through 300 attacks in total.", test: (c) => c.s.totals.dodges >= 300 },
+  { id: "over", name: "OVERCHARGED", desc: "Land a hit with full Surge.", test: (c) => c.stats.fullSurge },
+  { id: "big", name: "BIG NUMBER", desc: "Deal 12 damage in a single hit.", test: (c) => c.stats.maxHit >= 12 },
+  { id: "quick", name: "QUICK WORK", desc: "Clear a boss's full form in under 60 seconds.", test: (c) => c.won && c.n % 3 === 0 && c.stats.time < 60 },
+  { id: "run3", name: "HOT STREAK", desc: "Clear 3 waves in a row.", test: (c) => c.run >= 3 },
+  { id: "run10", name: "MARATHON", desc: "Clear 10 waves in a row.", test: (c) => c.run >= 10 },
+  { id: "run25", name: "ENDURANCE", desc: "Clear 25 waves in a row.", test: (c) => c.run >= 25 },
+  { id: "half", name: "HALFWAY THERE", desc: "Clear wave 75.", test: (c) => !!c.s.waves[75] },
+  { id: "final", name: "SIGNAL RESTORED", desc: "Clear wave 150.", test: (c) => !!c.s.waves[WAVES.length] },
+  { id: "all", name: "COMPLETIONIST", desc: "Clear all 150 waves.", test: (c) => Object.keys(c.s.waves).length >= WAVES.length },
+  { id: "s10", name: "TEN OUT OF TEN", desc: "Earn rank S on 10 waves.", test: (c) => clearedWith(c, "S") >= 10 },
+  { id: "s50", name: "PERFECT RECORD", desc: "Earn rank S on all 150 waves.", test: (c) => clearedWith(c, "S") >= WAVES.length },
+  { id: "chill", name: "TAKE IT EASY", desc: "Clear a wave on Chill.", test: (c) => c.won && c.s.diff === "chill" },
+  { id: "brutal", name: "BRUTAL HONESTY", desc: "Clear a wave on Brutal.", test: (c) => c.won && c.s.diff === "brutal" },
+  { id: "mercy", name: "NO MERCY", desc: "Clear wave 150 on Brutal.", test: (c) => c.won && c.n === WAVES.length && c.s.diff === "brutal" },
+  { id: "still", name: "STILL STANDING", desc: "Lose 25 fights and keep going.", test: (c) => c.s.totals.deaths >= 25 },
+  { id: "colors", name: "COLOR THEORIST", desc: "Try 6 different neon colors.", test: (c) => c.s.totals.colors.length >= 6 },
+];

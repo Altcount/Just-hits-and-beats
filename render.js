@@ -195,10 +195,16 @@ const Render = (() => {
   function drawPlayer(g) {
     const p = g.player;
     if (!p.alive) return;
-    const inRange = g.boss.alive && g.boss.parts.some((q) => q.hit !== false && Math.hypot(q.x - p.x, q.y - p.y) - q.r < STRIKE_R);
+    const weapon = WEAPONS[p.weapon];
+    const inRange = !weapon.ranged && g.boss.alive && g.boss.parts.some((q) => q.hit !== false && Math.hypot(q.x - p.x, q.y - p.y) - q.r < STRIKE_R);
     c.strokeStyle = inRange ? `rgba(${ICE_RGB},.75)` : `rgba(${NEON},.14)`;
     c.lineWidth = inRange ? 2 : 1;
-    c.beginPath(); c.arc(p.x, p.y, STRIKE_R, 0, TAU); c.stroke();
+    if (!weapon.ranged) { c.beginPath(); c.arc(p.x, p.y, STRIKE_R, 0, TAU); c.stroke(); }
+    if (p.windup > 0) {
+      // Heavy Slam winding up: the ring closes in, and the slam lands as it reaches you.
+      c.strokeStyle = ICE; c.lineWidth = 4;
+      c.beginPath(); c.arc(p.x, p.y, lerp(16, STRIKE_R, p.windup / weapon.windup), 0, TAU); c.stroke();
+    }
 
     if (p.dashCd > 0) {
       c.strokeStyle = CY; c.lineWidth = 3;
@@ -223,6 +229,12 @@ const Render = (() => {
   }
 
   function drawFx(g) {
+    for (const o of g.orbs) {
+      c.fillStyle = ICE;
+      c.beginPath(); c.arc(o.x, o.y, o.surge ? 11 : 7, 0, TAU); c.fill();
+      c.strokeStyle = CY; c.lineWidth = 2;
+      c.beginPath(); c.arc(o.x, o.y, o.surge ? 16 : 11, 0, TAU); c.stroke();
+    }
     for (const r of g.rings) {
       const u = r.age / r.life, rad = lerp(r.r, r.to, 1 - (1 - u) * (1 - u));
       c.strokeStyle = `rgba(${ICE_RGB},${(1 - u) * 0.85})`;
@@ -250,7 +262,7 @@ const Render = (() => {
     // Black plates so the HUD stays readable when an attack floods the arena with solid cyan.
     c.fillStyle = "rgba(0,0,0,.78)";
     c.fillRect(x0 - 14, 3, barW + 28, y0 + 23);
-    c.fillRect(6, H - 54, 28 + g.player.maxHp * 30 + 120, 48);
+    c.fillRect(6, H - 54, 28 + g.player.maxHp * 30 + 290, 48);
     c.fillRect(W - 112, H - 62, 106, 56);
     c.textBaseline = "alphabetic";
     c.textAlign = "left";
@@ -303,6 +315,9 @@ const Render = (() => {
       if (i < p.charge) { c.fillStyle = ICE; c.fill(); }
       else { c.strokeStyle = `rgba(${NEON},.45)`; c.lineWidth = 1.5; c.stroke(); }
     }
+    c.font = `700 14px ${FONT}`;
+    c.fillStyle = ICE;
+    c.fillText(WEAPONS[p.weapon].name, sx + 132, H - 25);
     // Beat lamp: strike when this flashes for double damage.
     const lx = W - 44, ly = H - 34;
     c.beginPath(); c.arc(lx, ly, 10 + pu * 9, 0, TAU);
@@ -324,7 +339,7 @@ const Render = (() => {
       c.fillText("BOSS ARMORED  //  +1 HEALTH", W / 2, H / 2 + 24);
       c.globalAlpha = 1;
     }
-    if (g.n === 1 && g.state === "fight" && g.t - g.fightStart < 14) hints(g);
+    if (g.n === 1 && p.weapon === "pulse" && g.state === "fight" && g.t - g.fightStart < 14) hints(g);
   }
 
   function hints(g) {

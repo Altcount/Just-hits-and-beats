@@ -87,22 +87,29 @@ h1 em { font-style: normal; color: var(--ice); }
 }
 .wave-list {
   overflow-y: auto; padding: 2px 8px 2px 2px; min-height: 0;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(164px, 1fr));
   gap: 8px; align-content: start;
 }
-.tile {
-  position: relative; padding: 4px 4px 6px;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  min-width: 0; letter-spacing: .02em;
+.boss-card {
+  border: 2px solid var(--line); padding: 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0;
 }
-.tile canvas { width: 62px; height: 62px; }
-.t-num { position: absolute; top: 3px; left: 6px; font-size: 14px; font-weight: 700; }
-.t-rank { position: absolute; top: 3px; right: 6px; font-size: 14px; font-weight: 700; color: var(--ice); }
-.t-name { font-size: 11px; font-weight: 600; line-height: 1.1; text-align: center; min-height: 2.2em; }
+.boss-card.has-active { border-color: var(--cyan); }
+.boss-card canvas { width: 62px; height: 62px; }
+.t-name { font-size: 12px; font-weight: 600; line-height: 1.1; text-align: center; min-height: 2.2em; color: var(--cyan); }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 100%; }
+.tile {
+  padding: 3px 0; min-width: 0; height: 40px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  letter-spacing: 0; border-width: 1px;
+}
+.t-num { font-size: 13px; font-weight: 700; line-height: 1.1; }
+.t-rank { font-size: 11px; font-weight: 700; line-height: 1.1; min-height: 12px; color: var(--ice); }
 .tile.cleared { border-color: var(--dim); background: rgba(var(--neon), .13); }
 .tile.rank-S { border-color: var(--cyan); }
 .tile.active, .tile.active:hover { background: var(--cyan); color: var(--black); border-color: var(--cyan); }
 .tile.active .t-rank { color: var(--black); }
+
 .detail {
   display: flex; flex-direction: column; gap: 6px;
   overflow-y: auto; min-height: 0;
@@ -153,6 +160,36 @@ input[type="range"] { width: 100%; accent-color: var(--cyan); height: 28px; }
 .hue::-moz-range-thumb { width: 12px; height: 26px; background: #fff; border: 2px solid #000; border-radius: 0; }
 .toggle[aria-pressed="true"] { background: var(--cyan); color: var(--black); border-color: var(--cyan); }
 
+/* ---------- weapons + achievements ---------- */
+.scroll-body { flex: 1; min-height: 0; overflow-y: auto; padding-top: 16px; max-width: 1040px; width: 100%; margin: 0 auto; }
+.note { color: var(--ice); font-weight: 600; font-size: 15px; line-height: 1.35; }
+#weapon-note { margin-bottom: 14px; }
+.weapon-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.weapon-picker button { text-align: left; padding: 16px; letter-spacing: 0; display: flex; flex-direction: column; gap: 6px; }
+.weapon-picker b { font-size: 21px; letter-spacing: .04em; }
+.weapon-picker small { font-size: 14px; font-weight: 400; line-height: 1.35; color: var(--ice); }
+.weapon-picker em { font-style: normal; font-size: 13px; color: var(--dim); }
+.weapon-picker button.on { background: var(--cyan); color: var(--black); border-color: var(--cyan); }
+.weapon-picker button.on small, .weapon-picker button.on em { color: var(--black); }
+.weapon-picker button:disabled { opacity: .55; cursor: not-allowed; background: transparent; border-color: var(--line); }
+.weapon-picker.compact { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.weapon-picker.compact button { padding: 8px 4px; text-align: center; align-items: center; }
+.weapon-picker.compact b { font-size: 12px; line-height: 1.1; }
+.weapon-picker.compact small, .weapon-picker.compact em { display: none; }
+.ach-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; }
+.ach { border: 2px solid var(--line); padding: 10px 12px; opacity: .55; }
+.ach b { display: block; font-size: 16px; letter-spacing: .04em; color: var(--dim); }
+.ach span { font-size: 14px; line-height: 1.3; }
+.ach.got { opacity: 1; border-color: var(--cyan); background: rgba(var(--neon), .13); }
+.ach.got b { color: var(--cyan); }
+.r-ach { list-style: none; margin: 0; padding: 0; color: var(--ice); font-weight: 600; font-size: 14px; }
+#toast { position: fixed; top: 10px; left: 10px; z-index: 5; display: flex; flex-direction: column; gap: 6px; pointer-events: none; width: min(225px, 60vw); }
+.toast { background: #000; border: 2px solid var(--cyan); box-shadow: 0 0 18px rgba(var(--neon), .5); padding: 6px 10px; animation: toast 3.4s both; }
+.toast small { display: block; color: var(--dim); font-size: 12px; letter-spacing: .1em; }
+.toast b { color: var(--ice); font-size: 15px; line-height: 1.1; }
+@keyframes toast { 0% { opacity: 0; transform: translateY(-10px); } 8%, 88% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation-name: none; } }
+
 /* ---------- modals ---------- */
 .modal {
   background: rgba(0, 0, 0, .78);
@@ -199,6 +236,7 @@ input[type="range"] { width: 100%; accent-color: var(--cyan); height: 28px; }
 }
 .t-btn.big { width: 104px; height: 104px; right: 22px; bottom: 60px; font-size: 19px; }
 .t-btn.down { background: var(--cyan); color: var(--black); }
+.t-small.swap { top: 62px; }
 .t-small {
   position: absolute; pointer-events: auto; right: 12px; top: 12px;
   width: 42px; height: 42px; padding: 0;
@@ -219,7 +257,7 @@ input[type="range"] { width: 100%; accent-color: var(--cyan); height: 28px; }
   }
   #detail-art, .detail h4, #d-moves, .d-tag { display: none; }
   .detail h3 { font-size: 21px; }
-  .wave-list { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
+  .wave-list { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   .bar h2 { font-size: 16px; }
   .bar { grid-template-columns: auto 1fr auto; }
   .card { padding: 14px; gap: 8px; }
