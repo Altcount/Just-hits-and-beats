@@ -65,13 +65,14 @@ const Sound = (() => {
     g.ch = {
       kick: ch(0.72, 0, 0, 0, g.music), tick: ch(0.28, 0, 0, 0, g.music),
       snare: ch(1, 0, 0.28, 0, g.music), ghost: ch(0.6, -0.12, 0.12, 0, g.music),
-      hat: ch(1.1, 0.22, 0, 0, g.music), ride: ch(0.8, -0.3, 0.1, 0, g.music),
+      hat: ch(0.7, 0.22, 0, 0, g.music), ride: ch(0.45, -0.3, 0.1, 0, g.music),
       tomL: ch(0.7, -0.35, 0.18, 0, g.music), tomR: ch(0.7, 0.35, 0.18, 0, g.music),
       sub: ch(0.3, 0, 0, 0, g.pump), bass: ch(0.4, 0, 0, 0, g.pump),
-      padL: ch(0.26, -0.7, 0.4, 0, g.pump), padR: ch(0.26, 0.7, 0.4, 0, g.pump),
-      arpL: ch(0.42, -0.5, 0.14, 0.3, g.pump), arpR: ch(0.42, 0.5, 0.14, 0.3, g.pump),
-      lead: ch(0.62, 0, 0.26, 0.32, g.pump), wideL: ch(0.3, -0.75, 0.3, 0.2, g.pump), wideR: ch(0.3, 0.75, 0.3, 0.2, g.pump),
+      padL: ch(0.17, -0.7, 0.4, 0, g.pump), padR: ch(0.17, 0.7, 0.4, 0, g.pump),
+      arpL: ch(0.5, -0.5, 0.14, 0.3, g.pump), arpR: ch(0.5, 0.5, 0.14, 0.3, g.pump),
+      lead: ch(0.75, 0, 0.26, 0.32, g.pump), wideL: ch(0.3, -0.75, 0.3, 0.2, g.pump), wideR: ch(0.3, 0.75, 0.3, 0.2, g.pump),
       counter: ch(0.26, -0.3, 0.42, 0.18, g.pump),
+      stabL: ch(0.17, -0.4, 0.14, 0.05, g.pump), stabR: ch(0.17, 0.4, 0.14, 0.05, g.pump),
       swell: ch(0.5, 0, 0.4, 0, g.music), boom: ch(0.9, 0, 0.35, 0, g.music),
     };
     return g;
@@ -100,7 +101,9 @@ const Sound = (() => {
   function voice(dest, type, f, t, dur, v, o = {}) {
     const ctx = G.ctx, osc = ctx.createOscillator(), g = ctx.createGain();
     osc.type = type;
-    osc.frequency.setValueAtTime(f, t);
+    // A small scoop up into the note is what makes a chip lead feel played rather than typed.
+    if (o.scoop) { osc.frequency.setValueAtTime(f * 0.97, t); osc.frequency.exponentialRampToValueAtTime(f, t + o.scoop); }
+    else osc.frequency.setValueAtTime(f, t);
     if (o.det) osc.detune.value = o.det;
     if (o.to) osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.to), t + (o.toT || dur));
     const a = o.a || 0.004, end = t + Math.max(dur, a + 0.01);
@@ -196,19 +199,29 @@ const Sound = (() => {
     const a = B.arp[s];
     if (a && level >= 2 && B.kind !== "intro") {
       const cut = P.arp.cut * (0.65 + B.progress * 0.8) * (B.kind === "break" ? 0.7 : 1);
-      voice(a.pan ? C.arpR : C.arpL, P.arp.wave, mtof(a.m), t, P.arp.dec, 0.52 * a.v, { cut, cutTo: 500, cutT: P.arp.dec, q: 4 });
+      voice(a.pan ? C.arpR : C.arpL, P.arp.wave, mtof(a.m), t, P.arp.dec, 0.52 * a.v, { cut, cutTo: 400, cutT: P.arp.dec, q: 3 });
+    }
+
+    const H = B.stab[s];
+    if (H && level >= 3) {
+      const dur = stepT * 1.7, cut = P.stab.cut + B.progress * 500 + (B.kind === "drop" ? 400 : 0);
+      H.notes.forEach((m, i) => {
+        const f = mtof(m);
+        voice(C.stabL, P.stab.wave, f, t, dur, 0.5 * H.v, { det: -7 - i * 2, cut: cut * 1.6, cutTo: cut * 0.5, cutT: dur, q: 3 });
+        voice(C.stabR, P.stab.wave, f, t, dur, 0.5 * H.v, { det: 7 + i * 2, cut: cut * 1.6, cutTo: cut * 0.5, cutT: dur, q: 3 });
+      });
     }
 
     const L = B.lead[s];
     if (L && level >= 3) {
-      const dur = stepT * L.l, f = mtof(L.m), opt = { a: P.lead.a, hold: true, r: 0.09, cut: P.lead.cut, cutTo: P.lead.cut * 0.5, cutT: dur, q: 2 };
+      const dur = stepT * L.l, f = mtof(L.m), opt = { a: P.lead.a, hold: true, r: 0.09, cut: P.lead.cut, cutTo: P.lead.cut * 0.55, cutT: dur, q: 2, scoop: 0.025 };
       voice(C.lead, P.lead.wave, f, t, dur, 0.58 * L.v, Object.assign({ det: -P.lead.det * 0.4 }, opt));
       voice(C.lead, P.lead.wave, f, t, dur, 0.5 * L.v, Object.assign({ det: P.lead.det * 0.4 }, opt));
       if (level >= 5 || B.kind === "drop") {
-        // The big sections get a wide double and an octave on top.
+        // The big sections get a wide double and an octave underneath for weight, never a higher one.
         voice(C.wideL, "sawtooth", f, t, dur, 0.58 * L.v, Object.assign({}, opt, { det: -P.lead.det * 1.5 }));
         voice(C.wideR, "sawtooth", f, t, dur, 0.58 * L.v, Object.assign({}, opt, { det: P.lead.det * 1.5 }));
-        voice(C.wideL, "triangle", f * 2, t, dur, 0.34 * L.v, { a: P.lead.a, hold: true, r: 0.09 });
+        voice(C.wideR, "triangle", f / 2, t, dur, 0.5 * L.v, { a: P.lead.a, hold: true, r: 0.09 });
       }
     }
     const K = B.counter[s];
