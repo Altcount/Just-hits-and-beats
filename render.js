@@ -1,8 +1,17 @@
 ﻿"use strict";
 // Draws the arena. Visual rule the whole game follows: hollow means warning, solid means pain.
 const FONT = '"Chakra Petch", "Segoe UI", system-ui, sans-serif';
+// The player's look. Sizes are matched so every shape covers about the same area; the hitbox never changes.
+const PLAYER_SHAPES = {
+  diamond: { name: "DIAMOND", n: 4, r: 14.1, rot: 0 },
+  square: { name: "SQUARE", n: 4, r: 14.1, rot: Math.PI / 4 },
+  circle: { name: "CIRCLE", r: 11.3 },
+  triangle: { name: "TRIANGLE", n: 3, r: 17, rot: -Math.PI / 2 },
+  hexagon: { name: "HEXAGON", n: 6, r: 12.4, rot: 0 },
+};
+const SHAPE_ORDER = ["diamond", "square", "circle", "triangle", "hexagon"];
 const Render = (() => {
-  let cv, c, scale = 1, calm = false;
+  let cv, c, scale = 1, calm = false, shape = "diamond";
   const sprites = {};
   let vignette = null;
 
@@ -24,6 +33,22 @@ const Render = (() => {
     vignette = null;
   }
   function setCalm(v) { calm = v; }
+  function setShape(id) { if (PLAYER_SHAPES[id]) shape = id; }
+  function shapePath(x, id, size) {
+    const q = PLAYER_SHAPES[id];
+    if (!q.n) { x.beginPath(); x.arc(0, 0, q.r * size, 0, TAU); return; }
+    pg(x, q.n, q.r * size, q.rot);
+  }
+  function shapePreview(canvas, id) {
+    const x = canvas.getContext("2d"), m = canvas.width / 2;
+    x.clearRect(0, 0, canvas.width, canvas.height);
+    x.save();
+    x.translate(m, m);
+    x.scale(canvas.width / 64, canvas.width / 64);
+    shapePath(x, id, 1.4); x.fillStyle = "#000"; x.fill();
+    shapePath(x, id, 1); x.fillStyle = "#fff"; x.fill();
+    x.restore();
+  }
   // Bullet sprites and the vignette are baked in one colour, so a switch throws them away.
   Theme.listeners.push(() => { Object.keys(sprites).forEach((k) => delete sprites[k]); vignette = null; });
 
@@ -213,13 +238,14 @@ const Render = (() => {
     if (p.inv > 0 && p.dashI <= 0 && Math.floor(g.t * 16) % 2 === 0) return;
     c.save();
     c.translate(p.x, p.y);
-    c.rotate(PI / 4 + p.tilt);
+    // The triangle points where you're heading; the others just lean into the move.
+    c.rotate(shape === "triangle" ? Math.atan2(p.dirY, p.dirX) + PI / 2 : p.tilt);
     if (!calm) { c.shadowColor = "#fff"; c.shadowBlur = 18; }
     // The black gap keeps the player readable when standing on top of solid cyan.
-    c.fillStyle = "#000"; c.fillRect(-14, -14, 28, 28);
+    shapePath(c, shape, 1.4); c.fillStyle = "#000"; c.fill();
     c.shadowBlur = 0;
-    c.fillStyle = "#fff"; c.fillRect(-10, -10, 20, 20);
-    if (p.dashI > 0) { c.strokeStyle = ICE; c.lineWidth = 2; c.strokeRect(-17, -17, 34, 34); }
+    shapePath(c, shape, 1); c.fillStyle = "#fff"; c.fill();
+    if (p.dashI > 0) { shapePath(c, shape, 1.7); c.strokeStyle = ICE; c.lineWidth = 2; c.stroke(); }
     c.restore();
     for (let i = 0; i < p.charge; i++) {
       const a = g.t * 3 + (i / MAX_CHARGE) * TAU;
@@ -300,9 +326,9 @@ const Render = (() => {
       const x = 28 + i * 30, y = H - 30;
       c.save();
       c.translate(x, y);
-      c.rotate(PI / 4);
-      if (i < p.hp) { c.fillStyle = "#fff"; c.fillRect(-8, -8, 16, 16); }
-      else { c.strokeStyle = `rgba(${NEON},.45)`; c.lineWidth = 2; c.strokeRect(-8, -8, 16, 16); }
+      shapePath(c, shape, 0.8);
+      if (i < p.hp) { c.fillStyle = "#fff"; c.fill(); }
+      else { c.strokeStyle = `rgba(${NEON},.45)`; c.lineWidth = 2; c.stroke(); }
       c.restore();
     }
     const sx = 28 + p.maxHp * 30 + 20;
@@ -454,5 +480,5 @@ const Render = (() => {
     x.shadowBlur = 0;
   }
 
-  return { setup, setCalm, frame, menu, preview, resize };
+  return { setup, setCalm, setShape, shapePreview, frame, menu, preview, resize };
 })();

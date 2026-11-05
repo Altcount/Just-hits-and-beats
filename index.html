@@ -21,6 +21,7 @@
       <button id="btn-play" class="primary"></button>
       <button id="btn-waves">CHOOSE WAVE</button>
       <button id="btn-weapons">WEAPONS</button>
+      <button id="btn-char">CHARACTER</button>
       <button id="btn-ach">ACHIEVEMENTS</button>
       <button id="btn-help">HOW TO PLAY</button>
       <button id="btn-settings">SETTINGS</button>
@@ -65,6 +66,18 @@
   </div>
 </section>
 
+<section id="character" class="screen panel-screen" hidden>
+  <header class="bar">
+    <button class="back" data-go="title">&larr; BACK</button>
+    <h2>CHARACTER</h2>
+    <span></span>
+  </header>
+  <div class="scroll-body">
+    <p class="note">Pick your shape. It only changes how you look, so every shape dodges exactly the same.</p>
+    <div id="shape-picker" class="shape-picker"></div>
+  </div>
+</section>
+
 <section id="achievements" class="screen panel-screen" hidden>
   <header class="bar">
     <button class="back" data-go="title">&larr; BACK</button>
@@ -105,7 +118,7 @@
     </div>
     <div class="help-card">
       <h3>READ THE ARENA</h3>
-      <p><strong>Hollow means warning. Solid means pain.</strong> Dashed outlines show where an attack will land. You are the white diamond.</p>
+      <p><strong>Hollow means warning. Solid means pain.</strong> Dashed outlines show where an attack will land. You are the white shape, which you can change in the Character menu.</p>
     </div>
     <div class="help-card">
       <h3>WEAPONS</h3>

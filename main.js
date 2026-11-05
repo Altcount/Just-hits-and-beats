@@ -2,7 +2,7 @@
 // Screens, input, saving and the frame loop.
 const Save = {
   key: "just-hits-and-dodges-v1",
-  data: { v: 2, waves: {}, diff: "normal", music: 70, sfx: 80, calm: false, bestRun: 0, hue: 184, autoColor: false, weapon: "pulse", ach: {},
+  data: { v: 2, waves: {}, diff: "normal", music: 70, sfx: 80, calm: false, bestRun: 0, hue: 184, autoColor: false, weapon: "pulse", shape: "diamond", ach: {},
     totals: { perfects: 0, dodges: 0, deaths: 0, weaponWins: {}, colors: [] } },
   load() {
     try {
@@ -19,6 +19,7 @@ const Save = {
       if (typeof d.hue === "number") this.data.hue = d.hue;
       if (typeof d.autoColor === "boolean") this.data.autoColor = d.autoColor;
       if (WEAPONS[d.weapon]) this.data.weapon = d.weapon;
+      if (PLAYER_SHAPES[d.shape]) this.data.shape = d.shape;
       if (d.ach && typeof d.ach === "object") this.data.ach = d.ach;
       if (d.totals && typeof d.totals === "object") {
         const t = this.data.totals, l = d.totals;
@@ -60,7 +61,7 @@ const App = {
 };
 
 const MENU_TRACK = { bpm: 112, root: 45, scale: "dorian", flavor: "half", seed: 7 };
-const SCREENS = ["title", "select", "weapons", "achievements", "help", "settings", "pause", "result", "dead"];
+const SCREENS = ["title", "select", "weapons", "character", "achievements", "help", "settings", "pause", "result", "dead"];
 
 function show(name) {
   SCREENS.forEach((s) => { $(s).hidden = s !== name; });
@@ -115,6 +116,31 @@ function refreshWeapons() {
       box.appendChild(b);
     });
   });
+}
+
+/* ---------- character ---------- */
+function setPlayerShape(id) {
+  if (!PLAYER_SHAPES[id]) return;
+  Save.data.shape = id;
+  Save.write();
+  Render.setShape(id);
+  refreshShapes();
+}
+function refreshShapes() {
+  document.querySelectorAll("#shape-picker button").forEach((b) => b.classList.toggle("on", b.dataset.shape === Save.data.shape));
+}
+function buildShapePicker() {
+  SHAPE_ORDER.forEach((id) => {
+    const b = document.createElement("button"), art = document.createElement("canvas"), nm = document.createElement("span");
+    b.dataset.shape = id;
+    art.width = art.height = 192;
+    nm.textContent = PLAYER_SHAPES[id].name;
+    b.append(art, nm);
+    b.addEventListener("click", () => { Sound.sfx("ui"); setPlayerShape(id); });
+    $("shape-picker").appendChild(b);
+    Render.shapePreview(art, id);
+  });
+  refreshShapes();
 }
 
 /* ---------- achievements ---------- */
@@ -462,6 +488,7 @@ $("btn-play").addEventListener("click", () => beginRun(nextUncleared()));
 $("btn-waves").addEventListener("click", () => { App.selected = nextUncleared(); openSelect(); });
 $("btn-help").addEventListener("click", () => show("help"));
 $("btn-weapons").addEventListener("click", () => { refreshWeapons(); show("weapons"); });
+$("btn-char").addEventListener("click", () => { refreshShapes(); show("character"); });
 $("btn-ach").addEventListener("click", () => { refreshAchievements(); show("achievements"); });
 $("btn-settings").addEventListener("click", () => { refreshSettings(); show("settings"); });
 $("d-fight").addEventListener("click", () => beginRun(App.selected));
@@ -519,6 +546,7 @@ $("vol-sfx").addEventListener("input", (e) => { Save.data.sfx = +e.target.value;
 $("calm").addEventListener("click", () => {
   Save.data.calm = !Save.data.calm;
   Render.setCalm(Save.data.calm);
+Render.setShape(Save.data.shape);
   Save.write();
   refreshSettings();
 });
@@ -592,9 +620,11 @@ Theme.listeners.push(applyThemeToPage);
 Theme.set(Save.data.hue);
 Render.setup(cvs);
 Render.setCalm(Save.data.calm);
+Render.setShape(Save.data.shape);
 Sound.setVolumes(Save.data.music / 100, Save.data.sfx / 100);
 Sound.setTrack(MENU_TRACK);
 buildWaveList();
+buildShapePicker();
 refreshWeapons();
 Theme.listeners.push(paintTileArt);
 refreshTitle();
