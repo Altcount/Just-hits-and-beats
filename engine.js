@@ -11,14 +11,14 @@ const DIFFS = {
 };
 
 const WEAPONS = {
-  pulse: { id: "pulse", name: "PULSE", cd: STRIKE_CD, dmg: 1, windup: 0, ring: 5, desc: "A quick ring around you. Get close and keep swinging." },
+  pulse: { id: "pulse", name: "PULSE", cd: STRIKE_CD, dmg: 1, windup: 0, ring: 5, desc: "A quick ring around you. Get close and press for every hit." },
   quick: { id: "quick", name: "QUICK PULSE", cd: STRIKE_CD * 0.5, dmg: 0.5, windup: 0, ring: 3, desc: "The same ring at half the damage, in half the time. Land hits twice as often." },
   orb: { id: "orb", name: "ORB SHOOTER", cd: STRIKE_CD, dmg: 0.5, windup: 0, ranged: true, desc: "Every attack fires an orb that hits the boss by itself, from anywhere. Small damage." },
   slam: { id: "slam", name: "HEAVY SLAM", cd: 1.15, dmg: 2.5, windup: 0.3, ring: 13, desc: "The same ring, but it takes longer to land and recover and hits far harder." },
 };
 const WEAPON_ORDER = ["pulse", "quick", "orb", "slam"];
 
-const input = { mx: 0, my: 0, hitBuf: 0, dashBuf: 0, hitHeld: false };
+const input = { mx: 0, my: 0, hitBuf: 0, dashBuf: 0 };
 let game = null;
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -472,7 +472,7 @@ function updatePlayer(dt) {
   if (p.windup > 0) {
     p.windup -= dt;
     if (p.windup <= 0) { p.windup = 0; strike(); }
-  } else if ((input.hitBuf > 0 || input.hitHeld) && p.hitCd <= 0) { input.hitBuf = 0; attack(); }
+  } else if (input.hitBuf > 0 && p.hitCd <= 0) { input.hitBuf = 0; attack(); }
 }
 
 function updateBoss(dt) {

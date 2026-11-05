@@ -239,7 +239,6 @@ function launch(n) {
 function resetInput() {
   input.mx = input.my = 0;
   input.hitBuf = input.dashBuf = 0;
-  input.hitHeld = false;
   keys.clear();
 }
 function toMenu(screen) {
@@ -349,7 +348,7 @@ window.addEventListener("keydown", (e) => {
   if (inFight) {
     if (MOVE_KEYS[e.code]) { keys.add(e.code); syncMove(); e.preventDefault(); return; }
     if (e.repeat) { if (HIT_KEYS.has(e.code) || DASH_KEYS.has(e.code)) e.preventDefault(); return; }
-    if (HIT_KEYS.has(e.code)) { input.hitBuf = 0.12; input.hitHeld = true; keys.add(e.code); e.preventDefault(); return; }
+    if (HIT_KEYS.has(e.code)) { input.hitBuf = 0.12; e.preventDefault(); return; }
     if (DASH_KEYS.has(e.code)) { input.dashBuf = 0.12; e.preventDefault(); return; }
     if (e.code === "Escape" || e.code === "KeyP") { pauseGame(); e.preventDefault(); return; }
     if (e.code === "KeyR") { launch(game.n); e.preventDefault(); }
@@ -376,7 +375,6 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("keyup", (e) => {
   keys.delete(e.code);
   if (MOVE_KEYS[e.code]) syncMove();
-  if (HIT_KEYS.has(e.code) && ![...keys].some((k) => HIT_KEYS.has(k))) input.hitHeld = false;
 });
 // Arrow keys walk the wave grid: left/right by wave, up/down by boss.
 function waveKeys(e) {
@@ -394,9 +392,8 @@ const cvs = $("game");
 cvs.addEventListener("mousedown", (e) => {
   if (App.mode !== "fight") return;
   if (e.button === 2) input.dashBuf = 0.12;
-  else if (e.button === 0) { input.hitBuf = 0.12; input.hitHeld = true; }
+  else if (e.button === 0) input.hitBuf = 0.12;
 });
-window.addEventListener("mouseup", (e) => { if (e.button === 0 && ![...keys].some((k) => HIT_KEYS.has(k))) input.hitHeld = false; });
 cvs.addEventListener("contextmenu", (e) => e.preventDefault());
 window.addEventListener("blur", () => { if (App.mode === "fight") pauseGame(); keys.clear(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && App.mode === "fight") pauseGame(); });
@@ -445,7 +442,7 @@ document.addEventListener("visibilitychange", () => { if (document.hidden && App
     btn.addEventListener("touchend", off, { passive: false });
     btn.addEventListener("touchcancel", off, { passive: false });
   };
-  hold($("t-hit"), () => { input.hitBuf = 0.12; input.hitHeld = true; }, () => { input.hitHeld = false; });
+  hold($("t-hit"), () => { input.hitBuf = 0.12; });
   hold($("t-dodge"), () => { input.dashBuf = 0.12; });
   $("t-pause").addEventListener("click", pauseGame);
   $("t-swap").addEventListener("click", nextWeapon);
