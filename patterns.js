@@ -8,11 +8,16 @@ function awayPoint(minD, y0 = 90, y1 = H - 60) {
 const vLine = (x, w, tele = 2, live = 0.5) => beam(x, 0, PI / 2, { tele, live, w, len: H });
 const hLine = (y, w, tele = 2, live = 0.5) => beam(0, y, 0, { tele, live, w, len: W });
 
+// How far the player can get in this many seconds, with a dash and a small margin.
+// Attacks that cover huge areas use this so there is always somewhere you can really reach in time.
+const reachIn = (secs) => 130 + SPEED * Math.max(0, secs - DASH_T);
+
 const PAT = {
   ringPulse(o, B) {
     every(2, B - 1, o.gap || 2, (i) => {
       const b = Bo();
-      burst(b.x, b.y, dn(o.n || 12), sp(o.speed || 170), { off: i * (o.twist || 0.2), r: o.r || 9, curve: o.curve || 0 });
+      // Capped so a ring near the boss still has gaps your hitbox fits through.
+      burst(b.x, b.y, Math.min(42, dn(o.n || 12)), sp(o.speed || 170), { off: i * (o.twist || 0.2), r: o.r || 9, curve: o.curve || 0 });
     });
   },
   spiral(o, B) {
@@ -165,7 +170,7 @@ const PAT = {
   stepBurst(o, B) {
     every(0, B - 2, o.gap || 2, (i) => {
       const b = Bo();
-      burst(b.x, b.y, dn(o.n || 14), sp(o.speed || 125), { off: i * 0.13, stepping: true, life: 12, r: 10 });
+      burst(b.x, b.y, Math.min(36, dn(o.n || 14)), sp(o.speed || 125), { off: i * 0.13, stepping: true, life: 12, r: 10 });
     });
   },
   splitShot(o, B) {
@@ -225,7 +230,10 @@ const PAT = {
     const squeeze = (b0, side) => {
       const fin = side < 0 ? 0 : size - t, off = side < 0 ? -t : size;
       at(b0, () => {
-        const opt = { tele: 2, live: 3, fn(h) {
+        // Holds the warning until the player has had time to reach the gap from wherever they are.
+        const p = Pl(), away = Math.abs((vert ? p.y - H / 2 : p.x - W / 2)) - hole / 2 + PLAYER_R + 10;
+        const needed = (Math.max(0, away - 130) / SPEED + DASH_T) / B2S(1);
+        const opt = { tele: Math.max(2, needed), live: 3, fn(h) {
           if (!h.on) return;
           const u = Math.min(1, (h.age - h.tele) / h.live), e = smooth(u < 0.5 ? u * 2 : (1 - u) * 2), v = lerp(off, fin, e);
           if (vert) h.y = v; else h.x = v;
@@ -350,13 +358,24 @@ const PAT = {
   },
   halfSlam(o, B) {
     every(0, B - 3, o.gap || 3, (i) => {
-      if (o.axis === "y") wall(0, i % 2 ? H / 2 : 0, W, H / 2, { tele: o.tele || 2.5, live: 0.5 });
-      else wall(i % 2 ? W / 2 : 0, 0, W / 2, H, { tele: o.tele || 2.5, live: 0.5 });
+      const vert = o.axis === "y", tele = o.tele || 2.5, p = Pl(), mid = vert ? H / 2 : W / 2, at0 = vert ? p.y : p.x;
+      let high = i % 2 === 1;
+      // If the slam would land on you and the safe half is out of reach, it takes the other half instead.
+      if (high === at0 >= mid && Math.abs(at0 - mid) + PLAYER_R + 6 > reachIn(B2S(tele))) high = !high;
+      if (vert) wall(0, high ? H / 2 : 0, W, H / 2, { tele, live: 0.5 });
+      else wall(high ? W / 2 : 0, 0, W / 2, H, { tele, live: 0.5 });
     });
   },
   quadrant(o, B) {
     every(0, B - 3, o.gap || 3.5, () => {
-      const safe = Math.floor(rnd(4));
+      // The safe corner is always one the player can actually get to in time.
+      const p = Pl(), tele = o.tele || 3, reach = reachIn(B2S(tele)), options = [];
+      for (let q = 0; q < 4; q++) {
+        const qx = (q % 2) * (W / 2), qy = (q >> 1) * (H / 2);
+        const gx = Math.max(qx + PLAYER_R + 6 - p.x, p.x - (qx + W / 2 - PLAYER_R - 6), 0), gy = Math.max(qy + PLAYER_R + 6 - p.y, p.y - (qy + H / 2 - PLAYER_R - 6), 0);
+        if (Math.hypot(gx, gy) <= reach) options.push(q);
+      }
+      const safe = options.length ? options[Math.floor(rnd(options.length))] : (p.x >= W / 2 ? 1 : 0) + (p.y >= H / 2 ? 2 : 0);
       for (let q = 0; q < 4; q++) if (q !== safe) wall((q % 2) * (W / 2), (q >> 1) * (H / 2), W / 2, H / 2, { tele: o.tele || 3, live: 0.5 });
     });
   },

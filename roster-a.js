@@ -1,11 +1,11 @@
-"use strict";
+﻿"use strict";
 // Waves 1-17, in order. Originals from bosses.js gain moves through add(); B() makes a new boss.
 const LINEUP = [];
 function add(def, moves) { def.moves.push(...moves); LINEUP.push(def); }
 function B(name, title, tag, s, moves) {
   const n = LINEUP.length + 1;
   LINEUP.push({
-    id: name.toLowerCase().replace(/[^a-z]/g, ""), name, title, tag, r: s.r || 50, home: s.home || 210, draw: lookOf(s.look), moves,
+    id: name.toLowerCase().replace(/[^a-z]/g, ""), name, title, tag, r: s.r || 50, home: s.home || 210, look: s.look, draw: lookOf(s.look), moves,
     music: { bpm: s.bpm, root: 36 + (n * 5) % 12, scale: ["minor", "phryg", "dorian", "harm"][n % 4], flavor: s.fl || "four", seed: n * 37 + 5 },
   });
 }

@@ -2,7 +2,7 @@
 // Screens, input, saving and the frame loop.
 const Save = {
   key: "just-hits-and-dodges-v1",
-  data: { v: 2, waves: {}, diff: "normal", music: 70, sfx: 80, calm: false, bestRun: 0, hue: 184, autoColor: false, weapon: "pulse", shape: "diamond", ach: {},
+  data: { v: 3, waves: {}, diff: "normal", music: 70, sfx: 80, calm: false, bestRun: 0, hue: 184, autoColor: false, weapon: "pulse", shape: "diamond", ach: {},
     totals: { perfects: 0, dodges: 0, deaths: 0, weaponWins: {}, colors: [] } },
   load() {
     try {
@@ -10,7 +10,7 @@ const Save = {
       if (!raw) return;
       const d = JSON.parse(raw);
       if (!d || typeof d !== "object") return;
-      if (d.waves && typeof d.waves === "object") this.data.waves = d.v === 2 ? d.waves : this.fromOldWaves(d.waves);
+      if (d.waves && typeof d.waves === "object") this.data.waves = d.v === 3 ? d.waves : d.v === 2 ? this.fromV2(d.waves) : this.fromV2(this.fromOldWaves(d.waves));
       if (DIFFS[d.diff]) this.data.diff = d.diff;
       if (typeof d.music === "number") this.data.music = d.music;
       if (typeof d.sfx === "number") this.data.sfx = d.sfx;
@@ -37,6 +37,15 @@ const Save = {
     Object.keys(old).forEach((k) => {
       const n = +k;
       if (Number.isInteger(n) && n >= 1 && n <= 50 && old[k]) [3 * n - 2, 3 * n - 1, 3 * n].forEach((w) => { out[w] = old[k]; });
+    });
+    return out;
+  },
+  // The finale used to be waves 145-150. New bosses now sit before it, so those clears move to the new end.
+  fromV2(old) {
+    const out = {};
+    Object.keys(old).forEach((k) => {
+      const n = +k;
+      if (Number.isInteger(n) && n >= 1 && n <= 150 && old[k]) out[n > 144 ? n + 150 : n] = old[k];
     });
     return out;
   },

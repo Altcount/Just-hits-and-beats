@@ -166,7 +166,8 @@ const METRO = {
     { name: "TICK TOCK", beats: 20, run(L) {
       go(640, 90, 2);
       const start = game.moveBase;
-      const angle = () => PI / 2 + Math.sin((game.beat - start) * PI / 2) * 1.12;
+      // Swings nearly flat, so there is no quiet spot beside the boss to stand and hit it from.
+      const angle = () => PI / 2 + Math.sin((game.beat - start) * PI / 2) * 1.5;
       at(1, () => {
         beam(640, 40, angle(), { tele: 2, live: 16, w: 28, len: 560, fn(h) { h.a = angle(); } });
         const bob = (h) => { const a = angle(); h.x = 640 + Math.cos(a) * 580; h.y = 40 + Math.sin(a) * 580; };
@@ -177,6 +178,8 @@ const METRO = {
         const a = angle(), x = 640 + Math.cos(a) * 580, y = 40 + Math.sin(a) * 580;
         fan(x, y, -PI / 2, dn(3), 1.2, sp(150), { ay: 150, life: 5 });
       });
+      // Every other beat it ticks: a short shockwave that punishes anyone hugging it.
+      every(4, 19, 2, (i) => { const b = Bo(); burst(b.x, b.y, dn(14), sp(210), { off: i * 0.26, r: 8, life: 1 }); });
     } },
     { name: "DOWNBEAT", beats: 16, run(L) {
       const n = 8, cw = W / n, gap = L >= 4 ? 1.5 : 2;

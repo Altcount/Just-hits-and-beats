@@ -211,11 +211,7 @@ const Render = (() => {
     }
   }
 
-  function drawBossDef(ctx, def, b, t, pu) {
-    if (!calm) { ctx.shadowColor = CY; ctx.shadowBlur = 22; }
-    def.draw(ctx, b, t, pu);
-    ctx.shadowBlur = 0;
-  }
+  function drawBossDef(ctx, def, b, t, pu) { BossLife.draw(ctx, def, b, t, pu, calm); }
 
   function drawPlayer(g) {
     const p = g.player;
@@ -344,6 +340,25 @@ const Render = (() => {
     c.font = `700 14px ${FONT}`;
     c.fillStyle = ICE;
     c.fillText(WEAPONS[p.weapon].name, sx + 132, H - 25);
+    if (p.weapon === "orb") {
+      // Ammo is the whole gimmick, so it gets a clear readout and a prompt when it needs you.
+      c.fillStyle = p.ammo > 0 ? ICE : `rgba(${NEON},.6)`;
+      c.font = `700 16px ${FONT}`;
+      c.fillText(String(p.ammo), sx + 232, H - 25);
+      if (g.state === "fight") {
+        const ready = p.charge >= MAX_CHARGE;
+        if (ready || p.ammo <= 0) {
+          c.textAlign = "center";
+          c.font = `700 ${ready ? 20 : 16}px ${FONT}`;
+          c.strokeStyle = "#000"; c.lineWidth = 5; c.lineJoin = "round";
+          const msg = ready ? "PRESS ATTACK: +" + WEAPONS.orb.clip + " ORBS" : "OUT OF ORBS: DODGE THROUGH ATTACKS";
+          c.strokeText(msg, W / 2, H - 28);
+          c.fillStyle = ready ? "#fff" : ICE;
+          c.fillText(msg, W / 2, H - 28);
+          c.textAlign = "left";
+        }
+      }
+    }
     // Beat lamp: strike when this flashes for double damage.
     const lx = W - 44, ly = H - 34;
     c.beginPath(); c.arc(lx, ly, 10 + pu * 9, 0, TAU);
@@ -423,6 +438,11 @@ const Render = (() => {
         c.strokeStyle = ICE; c.lineWidth = 2;
         c.beginPath(); c.arc(g.boss.x, g.boss.y, g.boss.r * 1.65, 0, TAU); c.stroke();
       }
+    } else if (g.state === "win") {
+      c.save();
+      c.translate(g.boss.x, g.boss.y);
+      BossLife.shatter(c, g.def, g.boss, g.t, g.t - g.endT, calm);
+      c.restore();
     }
     drawPlayer(g);
     drawFx(g);
@@ -473,7 +493,7 @@ const Render = (() => {
     x.clearRect(0, 0, d, d);
     x.save();
     x.translate(d / 2, d / 2);
-    const fit = (d * 0.3) / def.r;
+    const fit = (d * 0.25) / def.r;
     x.scale(fit, fit);
     drawBossDef(x, def, { x: 0, y: 0, r: def.r, flash: 0, parts: [], heading: 0 }, t, pu);
     x.restore();

@@ -13,7 +13,7 @@ const DIFFS = {
 const WEAPONS = {
   pulse: { id: "pulse", name: "PULSE", cd: STRIKE_CD, dmg: 1, windup: 0, ring: 5, desc: "A quick ring around you. Get close and press for every hit." },
   quick: { id: "quick", name: "QUICK PULSE", cd: STRIKE_CD * 0.5, dmg: 0.5, windup: 0, ring: 3, desc: "The same ring at half the damage, in half the time. Land hits twice as often." },
-  orb: { id: "orb", name: "ORB SHOOTER", cd: STRIKE_CD, dmg: 0.5, windup: 0, ranged: true, desc: "Every attack fires an orb that hits the boss by itself, from anywhere. Small damage." },
+  orb: { id: "orb", name: "ORB SHOOTER", cd: STRIKE_CD, dmg: 0.5, windup: 0, ranged: true, clip: 20, desc: "Hits the boss from anywhere, but needs ammo. Dodge through attacks for 3 Surge, then press attack to turn them into 20 orbs." },
   slam: { id: "slam", name: "HEAVY SLAM", cd: 1.15, dmg: 2.5, windup: 0.3, ring: 13, desc: "The same ring, but it takes longer to land and recover and hits far harder." },
 };
 const WEAPON_ORDER = ["pulse", "quick", "orb", "slam"];
@@ -47,7 +47,7 @@ function startFight(n, diffKey, weaponId) {
     phase: 0, phaseIdx: 0, L: 0, spMul: 1, dnMul: 1,
     player: {
       x: W / 2, y: 590, hp: diff.hp, maxHp: diff.hp, inv: 0, dashT: 0, dashI: 0, dashCd: 0,
-      dirX: 0, dirY: -1, hitCd: 0, charge: 0, dodged: false, slowT: 0, alive: true, tilt: 0, weapon: WEAPONS[weaponId] ? weaponId : "pulse", windup: 0,
+      dirX: 0, dirY: -1, hitCd: 0, charge: 0, dodged: false, slowT: 0, alive: true, tilt: 0, weapon: WEAPONS[weaponId] ? weaponId : "pulse", windup: 0, ammo: 0,
     },
     boss: {
       x: W / 2, y: -140, bx: W / 2, by: -140, r: def.r, hp: w.hp, maxHp: w.hp, flash: 0, armor: 0,
@@ -94,6 +94,8 @@ function go(x, y, beats, ease) {
 /* ---------- hazards ---------- */
 function spawn(h) {
   h.age = 0;
+  // Lets the boss visibly lunge and open its mouth whenever it throws something.
+  game.boss.attackT = 0.22;
   if (game.hz.length < 1500) game.hz.push(h);
   return h;
 }
@@ -275,13 +277,29 @@ function attack() {
 }
 
 function fireOrb(w) {
-  const p = game.player, target = hittablePart(Infinity);
+  const p = game.player;
+  // A full set of Surge turns into ammo instead of firing.
+  if (p.charge >= MAX_CHARGE) {
+    p.charge = 0;
+    p.ammo += w.clip;
+    p.hitCd = STRIKE_CD * 0.5;
+    addFloat(p.x, p.y - 34, "+" + w.clip + " ORBS", 0.8);
+    game.rings.push({ x: p.x, y: p.y, r: 44, to: 12, life: 0.25, age: 0, w: 4 });
+    Sound.sfx("surge");
+    return;
+  }
+  const target = hittablePart(Infinity);
+  if (!target || game.state !== "fight") { Sound.sfx("whiff"); return; }
+  if (p.ammo <= 0) {
+    p.hitCd = STRIKE_CD * 0.5;
+    addFloat(p.x, p.y - 34, "NO ORBS", 0.5);
+    Sound.sfx("whiff");
+    return;
+  }
+  p.ammo--;
   Sound.sfx("whiff");
-  if (!target || game.state !== "fight") return;
-  const perfect = onBeatNow(), open = fightOpen();
-  const surge = open ? p.charge : 0;
-  if (surge) p.charge = 0;
-  game.orbs.push({ x: p.x, y: p.y, target, dmg: w.dmg * (perfect ? 2 : 1) + surge * 2, perfect, surge });
+  const perfect = onBeatNow();
+  game.orbs.push({ x: p.x, y: p.y, target, dmg: w.dmg * (perfect ? 2 : 1), perfect, surge: 0 });
 }
 
 function updateOrbs(dt) {
@@ -479,6 +497,7 @@ function updateBoss(dt) {
   const b = game.boss;
   if (!b.alive) return;
   b.flash = Math.max(0, b.flash - dt * 6);
+  b.attackT = Math.max(0, (b.attackT || 0) - dt);
   if (b.tw) {
     const tw = b.tw;
     tw.t += dt;

@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 // Waves 34-50.
 B("THE KEPT PROMISE", "It Said It Would Come Back", "And here it is, on schedule, with interest.", { bpm: 130, r: 50, look: { k: "hourglass" } }, [
   mv("OVERDUE", "recall", { n: 16, gap: 3.5, speed: 250, speed2: 285 }),
@@ -122,11 +122,4 @@ B("EVENING ARCHON", "The Sun's Last Bureaucrat", "All light must be returned by 
   mv("LONG SHADOWS", "sweep", { w: 90, gap: 4.5 }),
   mv("NIGHT SHIFT", "blackout", { n: 8, speed: 215, gap: 1.25 }),
   mv("FINAL ARCHIVE", "lightning", { gap: 1.75, seg: 7, w: 28, aimed: true }),
-]);
-add(CHOIR, []);
-add(ZERO, [
-  mv("DEAD AIR", "implode", { gap: 1.5, speed: 240, width: 0.75, center: true, pos: [640, 340] }),
-  mv("CARRIER WAVE", "gapWall", { hole: 195, gap: 0.75, speed: 380, wave: 0.28 }),
-  mv("THE LAST SAMPLE", "recall", { n: 26, gap: 2.5, speed: 300, speed2: 340 }),
-  mv("BELOW THE NOISE FLOOR", "quadrant", { gap: 2, tele: 1.75 }),
 ]);

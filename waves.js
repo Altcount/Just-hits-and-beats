@@ -6,7 +6,7 @@ const SONG_SCALES = ["minor", "phryg", "dorian", "harm", "mixo", "lydian"];
 const SONG_GROOVES = ["four", "break", "half", "march", "shuffle", "roll"];
 const WAVES = [];
 LINEUP.forEach((d, i) => {
-  const finals = i >= LINEUP.length - 2, rank = Math.min(3, Math.floor(i / 12));
+  const finals = i >= LINEUP.length - 2, rank = Math.min(3, Math.floor(i / 25));
   [3, 5, d.moves.length].forEach((count, form) => {
     const moves = d.moves.slice(0, count), n = WAVES.length + 1;
     // Each wave has its own song: same boss theme, but a new key, scale, groove, sound and a little more speed.
@@ -22,7 +22,7 @@ LINEUP.forEach((d, i) => {
     if (form === 2 && i === LINEUP.length - 1) label = "END OF SIGNAL";
     WAVES.push({
       n, boss: d, form, music, tier: finals ? 3 : rank + (form === 2 ? 1 : 0), label, moves,
-      hp: Math.round(seconds * (3.3 + i * 0.008) * 0.8),
+      hp: Math.round(seconds * (3.3 + i * 0.004) * 0.8),
       phases: form === 0 ? [0.5] : finals && form === 2 ? [0.75, 0.5, 0.25] : [0.66, 0.33],
     });
   });
